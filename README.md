@@ -18,7 +18,7 @@ FEATURES
 
 3. It will recognise how numbers/text are positioned in a cell - left, centre, right - top, centre, bottom.
 
-4. It replicates most cell formatting including merged cells - background colour, border lines in solid, dotted and dashed in three thicknesses and the correct colour. It can recognise diagonal lines in all colours, but so far can only reproduce solid lines which are in only one thickness. At present it can't reproduce two diagonal lines to form a cross, so it reverts to a single diagonal line. It also can't replicate cell background patterns. (Currently no easy way to do these in CSS).
+4. It replicates most cell formatting including merged cells - background colour, border lines in solid, dotted and dashed in three thicknesses and the correct colour. It can reproduce diagonal lines in all colours, but so far can only reproduce solid lines which are in only one thickness. At present it can't reproduce two diagonal lines in a cell to form a cross, so it reverts to a single diagonal line. It also can't replicate cell background patterns. (Currently no easy way to do these in CSS).
 
 5. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown.
 
