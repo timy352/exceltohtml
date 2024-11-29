@@ -99,17 +99,17 @@ fwrite($myfile, $text)
 # OPTIONS
 
 ## Select which sheet(s) to display - Option 1
-Default is to show all sheets. This is selected by the first character in the last parameter of readDocument(), i.e.:-
+Default is to show all sheets. However you can also select an individual sheet. This is selected by the first character in the last parameter of readDocument(), i.e.:-
 ```
-$text = $rt->readDocument('FILENAME','A'); Display all sheets in the Excel spreadsheet (Default)
-$text = $rt->readDocument('FILENAME','2'); Sheet two is shown selected for display here
+$text = $rt->readDocument('FILENAME','A'); Display all sheets in the Excel spreadsheet. (Default)
+$text = $rt->readDocument('FILENAME','2'); Sheet two is shown selected for display here.
 ```
 
 ## Column Widths and Row Heights - Option 2
-Default is to make theColumn Widths and Row Heights approx the same as the original spreadsheet. This is selected by the second character in the last parameter of readDocument(), i.e.:-
+Default is to make the Column Widths and Row Heights approx the same as the original spreadsheet. This is selected by the second character in the last parameter of readDocument(), i.e.:-
 ```
 $text = $rt->readDocument('FILENAME','AO'); The Column Widths and Row Heights will be approx the same as the original spreadsheet. (Default)
-$text = $rt->readDocument('FILENAME','AA'); 'Auto' mode, it will let the browser choose the Column Widths and Row Heights
+$text = $rt->readDocument('FILENAME','AA'); 'Auto' mode, it will let the browser choose the Column Widths and Row Heights.
 ```
 
 ## 'Print' or 'Spreadsheet' mode - Option 3
