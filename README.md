@@ -2,7 +2,7 @@
 
 ## DESCRIPTION
 
-This php script will convert an Excel .XLSX file to html and display the resultant code (including images) in a web page. It will recognise nearly all the formatting, images etc. in the original Excel XLSX document. At present it doesn't support graphs and charts. 
+This php script will convert an Excel .XLSX file to html and display the resultant code (including images) in a web page. It will recognise nearly all the formatting, images etc. in the original Excel XLSX document including the more common Conditional Formatting styles. At present it doesn't support graphs and charts. 
 
 NOTE:- Needs at least php 5 and will run on up to (at least) php 8.1.
 
@@ -20,23 +20,26 @@ FEATURES
 
 4. It replicates most cell formatting including merged cells - background colour, border lines in solid, dotted and dashed in three thicknesses and the correct colour. It can reproduce diagonal lines in all colours, but so far can only reproduce solid lines which are in only one thickness. At present it can't reproduce two diagonal lines in a cell to form a cross, so it reverts to a single diagonal line. It also can't replicate cell background patterns. (Currently no easy way to do these in CSS).
 
-5. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown.
+5. It will reproduce most of the more common Conditional Formatting styles (either from a given number/string or the contents of a referenced cell):-
+Greater Than, Greater Than or Equal to, Less Than, Less Than or Equal to, Between, Not Between, Equal, Not Equal, Contains a Text String, Does Not Contain a Text String, Begins with a Text String, Ends with a Text String, Duplicate Values, Unique Values.
 
-6. It will display any images in the correct cell locations as per the spreadsheet. The images are also saved to the default folder 'images'. However this folder/directory name can be changed if desired.
+6. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown.
 
-7. The results of all formulas/calculations are shown.
+7. It will display any images in the correct cell locations as per the spreadsheet. The images are also saved to the default folder 'images'. However this folder/directory name can be changed if desired.
 
-8. It can display headers and footers together with any text formatting - selectable, see below.
+8. The results of all formulas/calculations are shown.
 
-9. If the spreadsheet contains more that one populated sheet, then the default is to display them all in succession one after the other. However an option is provided to just display one, which can be selected by its sheet number.
+9. It can display headers and footers together with any text formatting - selectable, see below.
 
-10. By default column widths and row heights are as per the original Excel spreadsheet. However 'Auto' mode is available as an option where the browser is allowed to choose them itself. This option can be useful for wide spreadsheets and/or narrower screens.
+10. If the spreadsheet contains more that one populated sheet, then the default is to display them all in succession one after the other. However an option is provided to just display one, which can be selected by its sheet number.
 
-11. If the default 'Print' option is selected, it will look similar to a printed Excel sheet, with headers and footers displayed, but no row and column references.
+11. By default column widths and row heights are as per the original Excel spreadsheet. However an 'Auto' mode is available as an option where the browser is allowed to choose them itself. This option can be useful for wide spreadsheets and/or narrower screens.
 
-12. If the 'Spreadsheet' option is selected then it will display the name of the sheet at the top together with the correct row and column references in the usual gray background along the top and left hand side as per a spreadsheet. Headers and footers will not be shown in this mode.
+12. If the default 'Print' option is selected, it will look similar to a printed Excel sheet, with headers and footers displayed, but no row and column references.
 
-13. The resultant html code is designed to be used either as is, or (after saving) included in another html file. However an option is provided to add a html header, so that after saving, it can be used as a standalone file (along with any images that it contains).
+13. If the 'Spreadsheet' option is selected then it will display the name of the sheet at the top together with the correct row and column references in the usual gray background along the top and left hand side as per a spreadsheet. Headers and footers will not be shown in this mode.
+
+14. The resultant html code is designed to be used either as is, or (after saving) included in another html file.
 
 If anyone finds any problems or has sugestions for enhancements, please contact me on timothy.edwards1@btinternet.com 
 
