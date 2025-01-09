@@ -127,4 +127,4 @@ $text = $rt->readDocument('FILENAME','AOS'); 'Spreadsheet' mode - Includes row a
 ## UPDATE NOTES
 
 Version 1.0.1 - It provides the following enhancements -
-It will now recognise more number formatting. It will now replicate the following Conditional Formatting (except formula based ones) - Data Bar, Colour Scale,Top N(N%), Bottom N(N%), Above/below average and 1,2,3 Standard Deviation Away. It now gives better support/replication for currency units - particularly trailing ones. In accounting formatting a '0' amount will be now be displayed as '-' as per Excel. Also a number of bugs have been cleared.
+It will now recognise more number formatting. It will now replicate the following Conditional Formatting (except formula based ones) - Data Bar, Colour Scale, Top N(N%), Bottom N(N%), Above/below average and 1,2,3 Standard Deviations Away. It now gives better support/replication for currency units - particularly trailing ones. In accounting formatting a '0' amount will be now be displayed as '-' as per Excel. Also a number of bugs have been cleared.
