@@ -14,7 +14,7 @@ FEATURES
 
 1. It replicates nearly all text formatting - font (so long as its a common font), font size, bold, italic, single and double underlining, superscript, subscript, strikethrough and colour. It will also support hyperlinks.
 
-2. It recognises and replicates virtually all number formatting, including %, scientific, currency, time and date etc..
+2. It recognises and replicates virtually all number formatting, including %, scientific, currency, accountacy, time and date etc..
 
 3. It will recognise how numbers/text are positioned in a cell - left, centre, right - top, centre, bottom.
 
@@ -23,23 +23,25 @@ FEATURES
 5. It will reproduce most of the more common Conditional Formatting styles (either from a given number/string or the contents of a referenced cell):-
 Greater Than, Greater Than or Equal to, Less Than, Less Than or Equal to, Between, Not Between, Equal, Not Equal, Contains a Text String, Does Not Contain a Text String, Begins with a Text String, Ends with a Text String, Duplicate Values, Unique Values.
 
-6. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown.
+6. It will now reproduce virtually all other conditional formatting except Icon Sets type and also any based on formulas. I.e. it supports Data Bar, Colour Scale, Top N(N%), Bottom N(N%), Above/below average and 1,2,3 Standard Deviation away.
 
-7. It will display any images in the correct cell locations as per the spreadsheet. The images are also saved to the default folder 'images'. However this folder/directory name can be changed if desired.
+7. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown.
 
-8. The results of all formulas/calculations are shown.
+8. It will display any images in the correct cell locations as per the spreadsheet. The images are also saved to the default folder 'images'. However this folder/directory name can be changed if desired.
 
-9. It can display headers and footers together with any text formatting - selectable, see below.
+9. The results of all formulas/calculations are shown.
 
-10. If the spreadsheet contains more that one populated sheet, then the default is to display them all in succession one after the other. However an option is provided to just display one, which can be selected by its sheet number.
+10. It can display headers and footers together with any text formatting - selectable, see below.
 
-11. By default column widths and row heights are as per the original Excel spreadsheet. However an 'Auto' mode is available as an option where the browser is allowed to choose them itself. This option can be useful for wide spreadsheets and/or narrower screens.
+11. If the spreadsheet contains more that one populated sheet, then the default is to display them all in succession one after the other. However an option is provided to just display one, which can be selected by its sheet number.
 
-12. If the default 'Print' option is selected, it will look similar to a printed Excel sheet, with headers and footers displayed, but no row and column references.
+12. By default column widths and row heights are as per the original Excel spreadsheet. However an 'Auto' mode is available as an option where the browser is allowed to choose them itself. This option can be useful for wide spreadsheets and/or narrower screens.
 
-13. If the 'Spreadsheet' option is selected then it will display the name of the sheet at the top together with the correct row and column references in the usual gray background along the top and left hand side as per a spreadsheet. Headers and footers will not be shown in this mode.
+13. If the default 'Print' option is selected, it will look similar to a printed Excel sheet, with headers and footers displayed, but no row and column references.
 
-14. The resultant html code is designed to be used either as is, or (after saving) included in another html file.
+14. If the 'Spreadsheet' option is selected then it will display the name of the sheet at the top together with the correct row and column references in the usual gray background along the top and left hand side as per a spreadsheet. Headers and footers will not be shown in this mode.
+
+15. The resultant html code is designed to be used either as is, or (after saving) included in another html file.
 
 If anyone finds any problems or has sugestions for enhancements, please contact me on timothy.edwards1@btinternet.com 
 
@@ -124,4 +126,5 @@ $text = $rt->readDocument('FILENAME','AOS'); 'Spreadsheet' mode - Includes row a
 
 ## UPDATE NOTES
 
-None yet
+Version 1.0.1 - It provides the following enhancements -
+It will now recognise more number formatting. It will now replicate the following Conditional Formatting (except formula based ones) - Data Bar, Colour Scale,Top N(N%), Bottom N(N%), Above/below average and 1,2,3 Standard Deviation Away. It now gives better support/replication for currency units - particularly trailing ones. In accounting formatting a '0' amount will be now be displayed as '-' as per Excel. Also a number of bugs have been cleared.
