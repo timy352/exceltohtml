@@ -155,7 +155,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		$this->setXmlParts($xl_xml, $xml, $enc);
 		$this->setXmlParts($theme_xml, $xml_theme, $enc);
 		$this->setXmlParts($rels_xml, $xml_rels, $enc);
-		$this->setXmlParts($shared_xml, $xml_shared, $enc);
+		if ($xml_shared){
+			$this->setXmlParts($shared_xml, $xml_shared, $enc);
+		}
 		
 		if($this->debug) {
 			echo "XML File : xl/workbook.xml<br>";
@@ -170,10 +172,12 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			echo "<textarea style='width:100%; height: 200px;'>";
 			echo $rels_xml->saveXML();
 			echo "</textarea>";
-			echo "<br>XML File : xl/sharedStrings.xml<br>";
-			echo "<textarea style='width:100%; height: 200px;'>";
-			echo $shared_xml->saveXML();
-			echo "</textarea>";
+			if ($xml_shared){
+				echo "<br>XML File : xl/sharedStrings.xml<br>";
+				echo "<textarea style='width:100%; height: 200px;'>";
+				echo $shared_xml->saveXML();
+				echo "</textarea>";
+			}
 		}
 		
 		//Find sheet names and ids
@@ -221,110 +225,112 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		}
 
 
-		//Read shared strings into an array
-		$reader2 = new XMLReader();
-		$reader2->XML($shared_xml->saveXML());
-		$sh = 0;
-		$si = $r = $fbold = $fund = $fital = $fsize = $fcol = $fname = $ftext = '';
-		while ($reader2->read()) {
-			if ($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 'si') {
-			$si = 'Y';
-			}
-			if ($reader2->nodeType == XMLREADER::END_ELEMENT && $reader2->name == 'si') {
-				$this->shared[$sh] = $ftext;
-				$ftext = '';
-				++$sh;
-				$si = '';
-			}
-			if ($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 'r') {
-				$r = 'Y';
-			}
-			if ($reader2->nodeType == XMLREADER::END_ELEMENT && $reader2->name == 'r') {
-				$fbold = $fund = $fital = $fsize = $fcol = $fname = $fstrike = $fscript = '';
-				$r = '';
-			}
+		if ($xml_shared){
+			//Read shared strings into an array
+			$reader2 = new XMLReader();
+			$reader2->XML($shared_xml->saveXML());
+			$sh = 0;
+			$si = $r = $fbold = $fund = $fital = $fsize = $fcol = $fname = $ftext = '';
+			while ($reader2->read()) {
+				if ($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 'si') {
+				$si = 'Y';
+				}
+				if ($reader2->nodeType == XMLREADER::END_ELEMENT && $reader2->name == 'si') {
+					$this->shared[$sh] = $ftext;
+					$ftext = '';
+					++$sh;
+					$si = '';
+				}
+				if ($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 'r') {
+					$r = 'Y';
+				}
+				if ($reader2->nodeType == XMLREADER::END_ELEMENT && $reader2->name == 'r') {
+					$fbold = $fund = $fital = $fsize = $fcol = $fname = $fstrike = $fscript = '';
+					$r = '';
+				}
 
-			if (($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 't') AND $r == '') {
-				$ftext = htmlentities($reader2->expand()->textContent);
-			}
-			if (($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 't') AND $r == 'Y') {
-				$ft = htmlentities($reader2->expand()->textContent);
-				if ($fbold == '' AND $fund == '' AND $fital == '' AND $fsize == '' AND $fcol == '' AND $fname == ''){
-					$ftext .= $ft;
-				} else {
-					$ftext .= "<span style='".$fname.$fsize.$fcol.$fbold.$fund.$fital.$fstrike.$fscript."'>".$ft."</span>";
+				if (($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 't') AND $r == '') {
+					$ftext = htmlentities($reader2->expand()->textContent);
 				}
-			}
-			if ($reader2->name == 'vertAlign') {
-				$script = $reader2->getAttribute("val");
-					if ($script == 'superscript'){
-						$fscript = "position: relative; top: -0.6em;";
-					} else if ($script == 'subscript'){
-						$fscript = "position: relative; bottom: -0.5em;";
+				if (($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 't') AND $r == 'Y') {
+					$ft = htmlentities($reader2->expand()->textContent);
+					if ($fbold == '' AND $fund == '' AND $fital == '' AND $fsize == '' AND $fcol == '' AND $fname == ''){
+						$ftext .= $ft;
+					} else {
+						$ftext .= "<span style='".$fname.$fsize.$fcol.$fbold.$fund.$fital.$fstrike.$fscript."'>".$ft."</span>";
 					}
-			}
-			if ($reader2->name == 'strike') {
-				$fstrike = " text-decoration:line-through;";
-			}
-			if ($reader2->name == 'b') {
-				$fbold = " font-weight: bold;";
-			}
-			if ($reader2->name == 'u') {
-				if ($reader2->getAttribute("val")){
-					$ftype = $reader2->getAttribute("val");
-					$fund = " border-bottom: 3px double;";
-				} else {
-					$fund = " text-decoration: underline;";
 				}
-			}
-			if ($reader2->name == 'i') {
-				$fital = " font-style: italic;";
-			}
-			if ($reader2->name == 'sz') {
-				if ($script){
-					$fsize = " font-size: ".round($reader2->getAttribute("val")*0.75/$this->FSFactor,2)."rem;";  // Font size for sub and super script
+				if ($reader2->name == 'vertAlign') {
+					$script = $reader2->getAttribute("val");
+						if ($script == 'superscript'){
+							$fscript = "position: relative; top: -0.6em;";
+						} else if ($script == 'subscript'){
+							$fscript = "position: relative; bottom: -0.5em;";
+						}
+				}
+				if ($reader2->name == 'strike') {
+					$fstrike = " text-decoration:line-through;";
+				}
+				if ($reader2->name == 'b') {
+					$fbold = " font-weight: bold;";
+				}
+				if ($reader2->name == 'u') {
+					if ($reader2->getAttribute("val")){
+						$ftype = $reader2->getAttribute("val");
+						$fund = " border-bottom: 3px double;";
+					} else {
+						$fund = " text-decoration: underline;";
+					}
+				}
+				if ($reader2->name == 'i') {
+					$fital = " font-style: italic;";
+				}
+				if ($reader2->name == 'sz') {
+					if ($script){
+						$fsize = " font-size: ".round($reader2->getAttribute("val")*0.75/$this->FSFactor,2)."rem;";  // Font size for sub and super script
+						
+					} else {
+						$fsize = " font-size: ".round($reader2->getAttribute("val")/$this->FSFactor,2)."rem;";  // Font size
+					}
+					$script = '';
+				}
+				if ($reader2->name == 'color') {
+					if ($reader2->getAttribute("rgb")){
+						$fcol = " color: #".substr($reader2->getAttribute("rgb"),2).";"; //Font colour
+					}
+					if ($reader2->getAttribute("theme")){
+						$Tfcol = $reader2->getAttribute("theme"); // Theme for this font				
+						$Ttheme = (int)$reader2->getAttribute("theme");
+						if ($reader2->getAttribute("tint")){
+							$Ttint = strval(round($reader2->getAttribute("tint"),2));
+						} else {
+							$Ttint = 0;
+						}
+						$Trgb = $this->themecol[$Ttheme]; // the rgb theme colour
+						if ($Ttint == 0){
+							$fcol = " color: #".$Trgb.";";
+						} else {
+							$fcol = " color: #".$this->calctint($Trgb, $Ttint).";"; // the calculated theme tint
+						}
+					}
+					if ($reader2->getAttribute("indexed")){
+						$fcol = " color: #".$this->Cindex[$reader2->getAttribute("indexed")].";"; //Indexed font colour
+					}
 					
-				} else {
-					$fsize = " font-size: ".round($reader2->getAttribute("val")/$this->FSFactor,2)."rem;";  // Font size
 				}
-				$script = '';
-			}
-			if ($reader2->name == 'color') {
-				if ($reader2->getAttribute("rgb")){
-					$fcol = " color: #".substr($reader2->getAttribute("rgb"),2).";"; //Font colour
-				}
-				if ($reader2->getAttribute("theme")){
-					$Tfcol = $reader2->getAttribute("theme"); // Theme for this font				
-					$Ttheme = (int)$reader2->getAttribute("theme");
-					if ($reader2->getAttribute("tint")){
-						$Ttint = strval(round($reader2->getAttribute("tint"),2));
-					} else {
-						$Ttint = 0;
+				if ($reader2->name == 'rFont') {
+					$FF = $reader2->getAttribute("val");
+					if (substr($FF,0,9) == 'Helvetica'){
+						$FF = 'Helvetica';
 					}
-					$Trgb = $this->themecol[$Ttheme]; // the rgb theme colour
-					if ($Ttint == 0){
-						$fcol = " color: #".$Trgb.";";
-					} else {
-						$fcol = " color: #".$this->calctint($Trgb, $Ttint).";"; // the calculated theme tint
-					}
+					$fname = " font-family: ".$FF.";"; //Font name
 				}
-				if ($reader2->getAttribute("indexed")){
-					$fcol = " color: #".$this->Cindex[$reader2->getAttribute("indexed")].";"; //Indexed font colour
+				if ($reader2->name == 'family') {
+					$ffam = $reader2->getAttribute("val");
 				}
-				
-			}
-			if ($reader2->name == 'rFont') {
-				$FF = $reader2->getAttribute("val");
-				if (substr($FF,0,9) == 'Helvetica'){
-					$FF = 'Helvetica';
+				if ($reader2->name == 'scheme') {
+					$fsch = $reader2->getAttribute("val");
 				}
-				$fname = " font-family: ".$FF.";"; //Font name
-			}
-			if ($reader2->name == 'family') {
-				$ffam = $reader2->getAttribute("val");
-			}
-			if ($reader2->name == 'scheme') {
-				$fsch = $reader2->getAttribute("val");
 			}
 		}
 	}
@@ -387,10 +393,15 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$reader = new XMLReader;
 			$reader->XML($draw_xml->saveXML());
 			$pictno = 0;
-			$xfrm = $im = '';
+			$xfrm = $im = $nfill = '';
 			while ($reader->read()) {
 				if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'xdr:twoCellAnchor') {
-					++$pictno;
+					if ($nfill == 'Y'){
+						$Fimage[$pictno] = $Limage[$pictno] = $Imxs[$pictno] = $Imys[$pictno] = $relId[$pictno] = '';
+						$nfill = '';
+					} else {
+						++$pictno;
+					}
 				}
 				if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'xdr:from') {
 					$Fimage[$pictno] = $ICol.$Irow; //first cell location for image
@@ -423,6 +434,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 				if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'a:xfrm') {
 					$xfrm = '';
+				}
+				if ($reader->name == 'a:noFill') {
+					$nfill = 'Y';
 				}
 			}
 			$ci = 0;
@@ -525,17 +539,16 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 
 	
 	/**
-	 * Calculates the tint of a theme colour for a particular tint factor
+	 * Converts from a ex RGB colour to a HSL colour
 	 *  
-	 * @param string $theme - The theme hex rgb colour
-	 * @param string $tint - The tint factor
-	 * @return string - The tint hex rgb colour
+	 * @param string $rgb - The hex rgb colour
+	 * @return string - The HSL colour
 	 */
-	private function calctint($theme, $tint)
+	private function hextohsl($rgb)
 	{
-		$r = hexdec(substr($theme,0,2));
-		$g = hexdec(substr($theme,2,2));
-		$b = hexdec(substr($theme,4,2));
+		$r = hexdec(substr($rgb,0,2));
+		$g = hexdec(substr($rgb,2,2));
+		$b = hexdec(substr($rgb,4,2));
 
 		$r /= 255;
 		$g /= 255;
@@ -549,41 +562,47 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		$l = ( $max + $min ) / 2;
 		$d = $max - $min;
 
-			if( $d == 0 ){
-				$h = $s = 0; // achromatic
-			} else {
-				$s = $d / ( 1 - abs( 2 * $l - 1 ) );
+		if( $d == 0 ){
+			$h = $s = 0; // achromatic
+		} else {
+			$s = $d / ( 1 - abs( 2 * $l - 1 ) );
 
 			switch( $max ){
-					case $r:
-						$h = 60 * fmod( ( ( $g - $b ) / $d ), 6 ); 
-							if ($b > $g) {
-							$h += 360;
-						}
-						break;
+				case $r:
+					$h = 60 * fmod( ( ( $g - $b ) / $d ), 6 ); 
+						if ($b > $g) {
+						$h += 360;
+					}
+					break;
 
-					case $g: 
-						$h = 60 * ( ( $b - $r ) / $d + 2 ); 
-						break;
+				case $g: 
+					$h = 60 * ( ( $b - $r ) / $d + 2 ); 
+					break;
 
-					case $b: 
-						$h = 60 * ( ( $r - $g ) / $d + 4 ); 
-						break;
-				}			        	        
+				case $b: 
+					$h = 60 * ( ( $r - $g ) / $d + 4 ); 
+					break;
+			}			        	        
 		}
 		// HSL colour values are $h, $s and $l
+		$hsl['h'] = $h;
+		$hsl['s'] = $s;
+		$hsl['l'] = $l;
+		return $hsl;
+	}
+	
 
-		//calculate tint of theme colour - Only $l needs changing
-		if ($tint < 0){
-			$tint = abs($tint);
-			$l = $l - $l * $tint; // new value of $l for a -ve tint factor
-		} else {
-			$l = (1 - $l) * $tint + $l; // new value of $l for a +ve tint factor
-		}
-		
-		//now convert the HSL colour back to rgb
-		$r = $g = $b = '';
 
+	/**
+	 * Converts from a HSL colour to a Hex RGB colour
+	 *  
+	 * @param string $h - The 'h' parameter of the HSL colour
+	 * @param string $s - The 's' parameter of the HSL colour
+	 * @param string $l - The 'l' parameter of the HSL colour
+	 * @return string - The hex rgb colour
+	 */
+	private function hsltohex($h, $s, $l)
+	{
 		$c = ( 1 - abs( 2 * $l - 1 ) ) * $s;
 		$x = $c * ( 1 - abs( fmod( ( $h / 60 ), 2 ) - 1 ) );
 		$m = $l - ( $c / 2 );
@@ -625,6 +644,118 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 
 		return $rgb;
 	}
+	
+	
+
+
+	/**
+	 * Calculates the tint of a theme colour for a particular tint factor
+	 *  
+	 * @param string $theme - The theme hex rgb colour
+	 * @param string $tint - The tint factor
+	 * @return string - The tint hex rgb colour
+	 */
+	private function calctint($theme, $tint)
+	{
+		//convert the hex colour to HSL colour
+		$hsl = $this->hextohsl($theme);
+
+		// HSL colour values are $h, $s and $l
+		$l = $hsl['l'];
+
+		//calculate tint of theme colour - Only $l needs changing
+		if ($tint < 0){
+			$tint = abs($tint);
+			$l = $l - $l * $tint; // new value of $l for a -ve tint factor
+		} else {
+			$l = (1 - $l) * $tint + $l; // new value of $l for a +ve tint factor
+		}
+		
+		//now convert the HSL colour back to rgb
+		$rgb = $this->hsltohex($hsl['h'], $hsl['s'], $l);	
+
+
+		return $rgb;
+	}
+
+
+
+
+	/**
+	 * Calculates the colorScale colour for a particular value in a range
+	 *  
+	 * @param array $CScolour - The 2 or 3 colours defining the colourScale conditional formatting
+	 * @param string $CSmin - The minimum value in the colourScale conditional formatting group
+	 * @param string $CSmax - The maximum value in the colourScale conditional formatting group
+	 * @param string $CSave - The average (mean) value in the colourScale conditional formatting group
+	 * @param string $Cell - The cell value
+	 * @return string - The colourScale conditional formatting hex rgb colour for this cell
+	 */
+	private function findcolorScale($CScolour, $CSmin, $CSmax, $CSave, $cell)
+	{
+		if ($cell < $CSmin){
+			$cell = $CSmin;
+		}
+		if ($cell > $CSmax){
+			$cell = $CSmax;
+		}
+		$Numcol = count($CScolour);
+		if ($Numcol == 3){
+			$hsla = $this->hextohsl($CScolour[0]);
+			$hslb = $this->hextohsl($CScolour[1]);
+			$hslc = $this->hextohsl($CScolour[2]);
+			if ($cell < $CSave){
+				if (abs($hsla['h'] - $hslb['h']) > 180){
+					if ($hsla['h'] > $hslb['h']){
+						$hsla['h'] = $hsla['h'] - 360;
+					} else {
+						$hslb['h'] = $hslb['h'] - 360;
+					}
+				}
+				$newH = $hsla['h'] + (($hslb['h'] - $hsla['h']) * ($cell - $CSmin) / ($CSave - $CSmin));
+				$newS = $hsla['s'] + (($hslb['s'] - $hsla['s']) * ($cell - $CSmin) / ($CSave - $CSmin));
+				$newL = $hsla['l'] + (($hslb['l'] - $hsla['l']) * ($cell - $CSmin) / ($CSave - $CSmin));
+				if ($newH < 0){
+					$newH = $newH + 360;
+				}
+				$rgb = $this->hsltohex($newH, $newS, $newL);	
+			} else {
+				if (abs($hslb['h'] - $hslc['h']) > 180){
+					if ($hslb['h'] > $hslc['h']){
+						$hslb['h'] = $hslb['h'] - 360;
+					} else {
+						$hslc['h'] = $hslc['h'] - 360;
+					}
+				}
+				$newH = $hslb['h'] + (($hslc['h'] - $hslb['h']) * ($cell - $CSave) / ($CSmax - $CSave));
+				$newS = $hslb['s'] + (($hslc['s'] - $hslb['s']) * ($cell - $CSave) / ($CSmax - $CSave));
+				$newL = $hslb['l'] + (($hslc['l'] - $hslb['l']) * ($cell - $CSave) / ($CSmax - $CSave));
+				if ($newH < 0){
+					$newH = $newH + 360;
+				}
+				$rgb = $this->hsltohex($newH, $newS, $newL);	
+			}
+		} else {
+			$hsla = $this->hextohsl($CScolour[0]);
+			$hslb = $this->hextohsl($CScolour[1]);
+				if (abs($hsla['h'] - $hslb['h']) > 180){
+					if ($hsla['h'] > $hslb['h']){
+						$hsla['h'] = $hsla['h'] - 360;
+					} else {
+						$hslb['h'] = $hslb['h'] - 360;
+					}
+				}
+				$newH = $hsla['h'] + (($hslb['h'] - $hsla['h']) * ($cell - $CSmin) / ($CSmax - $CSmin));
+				$newS = $hsla['s'] + (($hslb['s'] - $hsla['s']) * ($cell - $CSmin) / ($CSmax - $CSmin));
+				$newL = $hsla['l'] + (($hslb['l'] - $hsla['l']) * ($cell - $CSmin) / ($CSmax - $CSmin));
+				if ($newH < 0){
+					$newH = $newH + 360;
+				}
+				$rgb = $this->hsltohex($newH, $newS, $newL);	
+		}
+		return $rgb;
+	}
+
 
 
 
@@ -717,12 +848,8 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			}
 			if (($reader->name == 'strike') AND ($fon == 'Y') AND ($type == 'Y')) {
 				$Cstyle[$Ccount]['fstrike'] = " text-decoration:line-through;";
-				if ($reader->getAttribute("val")){
-					$stype = '';
-					$stype = $reader->getAttribute("val");
-					if ($stype == '0') {
+				if ($reader->getAttribute("val") === '0'){
 						$Cstyle[$Ccount]['fstrike'] = '';
-					}
 				}
 			}
 			if (($reader->name == 'b') AND ($fon == 'Y') AND ($type == 'Y')) {
@@ -1057,7 +1184,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		$formno = -1;
 		$fillno = 0;
 		$found = '';
-		$Nxref = array('1' => '0', '2' => '0.00', '3' => '#,##0', '4' => '#,##0.00', '9' => '0%', '10' => '0.00%', '11' => '0.00E+00', '12' => '#\ ?/?', '13' => '#\ ??/??', '14' => 'dd/mm/yyyy;@');
+		$Nxref = array('1' => '0', '2' => '0.00', '3' => '#,##0', '4' => '#,##0.00', '5' => '"£"#,##0;\-"£"#,##0', '6' => '"£"#,##0;[Red]\-"£"#,##0', '7' => '"£"#,##0.00;\-"£"#,##0.00', '8' => '"£"#,##0.00;[Red]\-"£"#,##0.00', '9' => '0%', '10' => '0.00%', '11' => '0.00E+00', '12' => '#\ ?/?', '13' => '#\ ??/??', '14' => 'dd/mm/yyyy;@', '15' => 'dd-M-yy;@', '16' => 'dd-M;@', '17' => 'M-yy;@', '18' => 'h:mm\ AM/PM;@', '19' => 'h:mm:ss\ AM/PM;@', '20' => 'hh:mm;@', '21' => 'hh:mm:ss;@', '22' => 'dd/mm/yyyy\ hh:mm;@', '37' => '#,##0;\-#,##0', '38' => '#,##0;[Red]\-#,##0', '39' => '#,##0.00;\-#,##0.00', '40' => '#,##0.00;[Red]\-#,##0.00', '42' => '_-"£"* #,##0_-;\-"£"* #,##0_-;_-"£"* "-"_-;_-@_-', '44' => '_-"£"* #,##0.00_-;\-"£"* #,##0.00_-;_-"£"* "-"??_-;_-@_-', '45' => 'mm:ss;@', '46' => 'ZZZ', '47' => 'mm:ss.0;@');
 		while ($reader->read()) {
 			// --------------------------------------------------------------------
 			//Start of Format Cross References
@@ -1222,10 +1349,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			
 			$Cellstyle[$cc]['hyper'] = $Cname[$formxfId[$cc]]; // cell style - used to indicate cells with a hyperlink
 			if (!$Nformat[$formnumfmt[$cc]]){
-				$Nformat[$formnumfmt[$cc]] = $Nxref[$formnumfmt[$cc]]; //some common number formats are not defined in the 'styles' file
+				$Nformat[$formnumfmt[$cc]] = $Nxref[$formnumfmt[$cc]]; //some common number formats are not always defined in the 'styles' file
 			}
 			$Cellstyle[$cc]['nform'] = $Nformat[$formnumfmt[$cc]]; // number format style
-			
 			++$cc;
 		}
 		
@@ -1256,28 +1382,33 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	/**
 	 * CONVERT DECIMAL TO A FRACTION
 	 *  
-	 * @param string $n - The decimal number
+	 * @param string $dec - The decimal number
 	 * @param string $n - The number which the denominator must be below
 	 * @return array- The numerator and denominator
 	 */
 	private function float2rat($n, $dec) 
 	{
-		$frac = array();
-		$tolerance = 1.e-6;
-		$h1=1; $h2=0;
-		$k1=0; $k2=1;
-		$b = 1/$n;
-		do {
-			$kk = $k1;
-			$hh = $h1;
-			$b = 1/$b;
-			$a = floor($b);
-			$aux = $h1; $h1 = $a*$h1+$h2; $h2 = $aux;
-			$aux = $k1; $k1 = $a*$k1+$k2; $k2 = $aux;
-			$b = $b-$a;
-		} while (abs($n-$h1/$k1) > $n*$tolerance AND $k1 < $dec);
-		$frac['num'] = $hh;
-		$frac['den'] = $kk;
+		if ($n <> 0 AND $n <> ''){
+			$frac = array();
+			$tolerance = 1.e-6;
+			$h1=1; $h2=0;
+			$k1=0; $k2=1;
+			$b = 1/$n;
+			do {
+				$kk = $k1;
+				$hh = $h1;
+				$b = 1/$b;
+				$a = floor($b);
+				$aux = $h1; $h1 = $a*$h1+$h2; $h2 = $aux;
+				$aux = $k1; $k1 = $a*$k1+$k2; $k2 = $aux;
+				$b = $b-$a;
+			} while (abs($n-$h1/$k1) > $n*$tolerance AND $k1 < $dec);
+			$frac['num'] = $hh;
+			$frac['den'] = $kk;
+		} else {
+			$frac['num'] = '';
+			$frac['den'] = '';
+		}
 
 		return $frac;
 }
@@ -1299,11 +1430,21 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$Len = $S1a - $Spos;
 			$details['unit'] = substr($Ncode,$Spos,$Len);
 		} else if (strpos($Ncode,'$')){ //find location of currency unit preceded by a '$'
-			$S2 = strpos($Ncode,'$');
-			$S2a = strrpos($Ncode,'-');
-			$Spos = $S2 + 1;
+			if (strpos($Ncode,'0[$')){ // find trailing currency
+				$details['pos'] = 'T';
+				$cp = strpos($Ncode,'0[$')+ 1;
+			} else if (strpos($Ncode,'0\ [$')){ // find trailing currency (euros)
+				$details['pos'] = 'T';
+				$cp = strpos($Ncode,'0\ [$')+ 3;
+			} else { // find leading currency units
+				$details['pos'] = 'L';
+				$cp = strpos($Ncode,'[$');
+			}
+			$cstr = substr($Ncode,$cp);
+			$S2a = strpos($cstr,'-');
+			$Spos = 2;
 			$Len = $S2a - $Spos;
-			$details['unit'] = substr($Ncode,$Spos,$Len);
+			$details['unit'] = substr($cstr,$Spos,$Len);
 		} else {
 			$details['unit'] = ''; //If no currency unit
 		}
@@ -1537,6 +1678,28 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	}
 	
 	
+
+	/**
+	 * CALCULATE STANDARD DEVIATION
+	 *  
+	 * @param array $my_arr - The array
+	 * @return string - The Standard Deviation of the array
+	 */
+	private function std_deviation($my_arr)
+	{
+	   $no_element = count($my_arr);
+	   $var = 0.0;
+	   $avg = array_sum($my_arr)/$no_element;
+	   foreach($my_arr as $i)
+	   {
+		  $var += pow(($i - $avg), 2);
+	   }
+	   return (float)sqrt($var/$no_element);
+	}
+
+
+
+
 	
 	/**
 	 * PROCESS A SHEET
@@ -1576,9 +1739,11 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		$Flast = array();
 		$Cwidth = array();
 		$crange = array();
-		$tst = -1;
+		$tst = $temp = -1;
 		$text = $Ccount = '';
-		$CF = $Xcount = 0;
+		$CF = $Xcount = $Tpriority = $dB = $lc = 0;
+		
+		$cs = '';
 		$fr = $ctype = '';
 		while ($reader->read()) {
 			if ($reader->name == 'dimension') {
@@ -1605,8 +1770,8 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 			}
 			if ($reader->name == 'c') {
-				++$tst;
 				if ($reader->nodeType <> XMLREADER::END_ELEMENT) {
+				++$tst;
 					$cellno[$tst] = $reader->getAttribute("r"); //cell number
 					$inv[$cellno[$tst]] = $tst;
 					if ($reader->getAttribute("t")){
@@ -1623,10 +1788,19 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					$Sdata[$cellno[$tst]] = $stylesource;
 				}
 			}
-			
-			
+			if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'row') {
+				if ($tt > $temp){ // Finding the last column used
+					$cd = $this->charstonum($cellno[$tt]); 
+					if($cd['char'] > $lc){
+						$lc = $cd['char'];
+					}
+					$temp = $tt;
+				}
+			}			
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'v') {
 				$cell[$tst] = htmlentities($reader->expand()->textContent); // get a number or a reference to the text held in shared strings (referenced by attribute 't')
+				$lr = $rr; //to find the last used row in the spreadsheet
+				$tt = $tst;
 			}
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'mergeCells') {
 				$mergenum = $reader->getAttribute("count"); //number of merged cell ranges
@@ -1647,6 +1821,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$crange[$confor] = $reader->getAttribute("sqref"); // Conditional Formatting cell range
 			}
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'xm:sqref') {
+				if ($dfstype[$confor] == 'dataBar'){
+					$dBref[$dB] = htmlentities($reader->expand()->textContent);
+				}
 				$crange[$confor] = htmlentities($reader->expand()->textContent); // Referenced Conditional Formatting cell range
 			}
 			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'cfRule') OR ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'x14:cfRule')){
@@ -1656,15 +1833,29 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					if ($reader->getAttribute("dxfId")){
 						$dfsref[$confor] = $reader->getAttribute("dxfId"); // Conditional Format reference
 					}
+					if ($reader->getAttribute("dxfId") === '0'){
+						$dfsref[$confor] = 0; // Conditional Format reference
+					}
 					$dfsop[$confor] = $reader->getAttribute("operator"); // Conditional Format type
 					if ($reader->getAttribute("text")){
 						$dfstext[$confor] = $reader->getAttribute("text"); // for text
 					}
+					$dfpcent[$confor] = $reader->getAttribute("percent"); // for top10 formatting
+					$dfbott[$confor] = $reader->getAttribute("bottom"); // for top10 formatting
+					$dfrank[$confor] = $reader->getAttribute("rank"); // for top10 formatting
+					$dfUave[$confor] = 'T';
+					if ($reader->getAttribute("aboveAverage") === '0'){
+						$dfUave[$confor] = 'B'; // for over/under average formatting
+					}
+					$dfEave[$confor] = $reader->getAttribute("equalAverage"); // for over/under average formatting
+					$dfSdev[$confor] = $reader->getAttribute("stdDev"); // for over/under average 					
 					$Tpriority = $priority;
 				} else {
 					$Ccount = 'Y';
 				}
 				$CF = 0;
+				$csa = $csb = 0;
+				$cs = 'Y';
 			}
 			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'formula') AND  $Ccount == '' AND $CF == 0) {
 				$form1 = htmlentities($reader->expand()->textContent);
@@ -1693,8 +1884,41 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					$Cform2[$confor] = $form2;
 				}
 			}
+			if ($reader->name == 'cfvo'){
+				$cfvo[$confor][$csa] = $reader->getAttribute("type");
+				if ($cfvo[$confor][$csa] == 'num' OR $cfvo[$confor][$csa] == 'percent' OR $cfvo[$confor][$csa] == 'percentile'){
+					$form2 = $reader->getAttribute("val"); //min/max for database
+					if (substr($form2,0,1) == '$'){
+						$form2 = str_replace('$','', $form2);
+						$cfvoval[$confor][$csa] = $cell[$inv[$form2]];
+					} else {
+						$cfvoval[$confor][$csa] = $form2;
+					}
+					
+				}
+				++$csa;
+			}
+			if (($reader->name == 'color') AND ($cs == 'Y')){
+				if ($reader->getAttribute("rgb")){
+					$CScolour[$confor][$csb] = substr($reader->getAttribute("rgb"),2);
+				} else {
+					$Ctheme = (int)$reader->getAttribute("theme");
+					if ($reader->getAttribute("tint")){
+						$Ctint = strval(round($reader->getAttribute("tint"),2));
+					} else {
+						$Ctint = 0;
+					}
+					$Trgb = $this->themecol[$Ctheme]; // the rgb theme colour
+					if ($Ctint == 0){
+						$CScolour[$confor][$csb] = $Trgb;
+					} else {
+						$CScolour[$confor][$csb] = $this->calctint($Trgb, $Ctint); // the calculated theme tint
+					}
+				}
+				++$csb;
+			}
 			if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'cfRule'){
-				
+				$cs = '';
 			}
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'xm:f') {
 				$Xtemp = htmlentities($reader->expand()->textContent); // get value link to conditional formatting
@@ -1704,8 +1928,88 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				} else {
 					$Xvalue = $dfstext[$confor] = $this->shared[$cell[$inv[$Xtemp]]];
 				}
-
-				
+			}
+			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'x14:dataBar') {
+				$dBBord[$dB] = 0;
+				$dBGrad[$dB] = 1;
+				if ($reader->getAttribute("border")){
+					$dBBord[$dB] = $reader->getAttribute("border");
+				}
+				if ($reader->getAttribute("gradient") === '0'){
+					$dBGrad[$dB] = $reader->getAttribute("gradient");
+				}
+			}
+			if (($reader->name == 'x14:borderColor') AND ($dfstype[$confor] == 'dataBar')){
+				if ($reader->getAttribute("rgb")){
+					$dBBcol[$dB] = substr($reader->getAttribute("rgb"),2);
+				} else {
+					$Ctheme = (int)$reader->getAttribute("theme");
+					if ($reader->getAttribute("tint")){
+						$Ctint = strval(round($reader->getAttribute("tint"),2));
+					} else {
+						$Ctint = 0;
+					}
+					$Trgb = $this->themecol[$Ctheme]; // the rgb theme colour
+					if ($Ctint == 0){
+						$dBBcol[$dB] = $Trgb;
+					} else {
+						$dBBcol[$dB] = $this->calctint($Trgb, $Ctint); // the calculated theme tint
+					}
+				}
+			}
+			if (($reader->name == 'x14:negativeFillColor') AND ($dfstype[$confor] == 'dataBar')){
+				if ($reader->getAttribute("rgb")){
+					$dBNFcol[$dB] = substr($reader->getAttribute("rgb"),2);
+				} else {
+					$Ctheme = (int)$reader->getAttribute("theme");
+					if ($reader->getAttribute("tint")){
+						$Ctint = strval(round($reader->getAttribute("tint"),2));
+					} else {
+						$Ctint = 0;
+					}
+					$Trgb = $this->themecol[$Ctheme]; // the rgb theme colour
+					if ($Ctint == 0){
+						$dBNFcol[$dB] = $Trgb;
+					} else {
+						$dBNFcol[$dB] = $this->calctint($Trgb, $Ctint); // the calculated theme tint
+					}
+				}
+			}
+			if (($reader->name == 'x14:negativeBorderColor') AND ($dfstype[$confor] == 'dataBar')){
+				if ($reader->getAttribute("rgb")){
+					$dBNBcol[$dB] = substr($reader->getAttribute("rgb"),2);
+				} else {
+					$Ctheme = (int)$reader->getAttribute("theme");
+					if ($reader->getAttribute("tint")){
+						$Ctint = strval(round($reader->getAttribute("tint"),2));
+					} else {
+						$Ctint = 0;
+					}
+					$Trgb = $this->themecol[$Ctheme]; // the rgb theme colour
+					if ($Ctint == 0){
+						$dBNBcol[$dB] = $Trgb;
+					} else {
+						$dBNBcol[$dB] = $this->calctint($Trgb, $Ctint); // the calculated theme tint
+					}
+				}
+			}
+			if (($reader->name == 'x14:axisColor') AND ($dfstype[$confor] == 'dataBar')){
+				if ($reader->getAttribute("rgb")){
+					$dBAcol[$dB] = substr($reader->getAttribute("rgb"),2);
+				} else {
+					$Ctheme = (int)$reader->getAttribute("theme");
+					if ($reader->getAttribute("tint")){
+						$Ctint = strval(round($reader->getAttribute("tint"),2));
+					} else {
+						$Ctint = 0;
+					}
+					$Trgb = $this->themecol[$Ctheme]; // the rgb theme colour
+					if ($Ctint == 0){
+						$dBAcol[$dB] = $Trgb;
+					} else {
+						$dBAcol[$dB] = $this->calctint($Trgb, $Ctint); // the calculated theme tint
+					}
+				}
 			}
 			if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'conditionalFormatting') {
 				$Tpriority = 0;
@@ -1717,6 +2021,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$Tpriority = 0;
 				$Ccount = '';
 				++$Xcount;
+				if ($dfstype[$confor] == 'dataBar'){
+					++$dB;
+				}
 				++$confor;
 			}
 
@@ -1735,8 +2042,11 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$yz = $this->charstonum($sheetsize[1]);
 			$Clast = $yz['char'];
 			$Rlast = $yz['num'];
-			if ($Rlast > $rr){ //check to see that there aren't some blank rows beyond the last occupied cell that are in the range noted in the worksheet
-				$Rlast = $rr;
+			if ($Clast > $lc){ //check to see that there aren't some blank columns beyond the last occupied cell that are in the range noted in the worksheet
+				$Clast = $lc;
+			}
+			if ($Rlast > $lr){ //check to see that there aren't some blank rows beyond the last occupied cell that are in the range noted in the worksheet
+				$Rlast = $lr + 1;
 			}
 
 			//Details of merged cells needed for findstyles to determine the right and bottom borders of merged cells
@@ -1790,7 +2100,6 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 			}
 			
-			
 			$Cellstyle = $this->findstyles($Ffirst,$Flast); // Sends the first and last cell of merges/images and gets the style parameters from the styles XML file
 			if ($Xcount > 0){
 				$Ccount = $Cellstyle[0]['dxf'];
@@ -1830,10 +2139,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			
 			// start processing and inclusion of conditional formatting
 			$cond = 0;
-			
-			// start of finding any duplicated cell values in areas of duplicate conditional formatting
+			$Atemp = array();
 			while ($cond < $confor){
-				if ($dfstype[$cond] == 'duplicateValues' OR $dfstype[$cond] == 'uniqueValues'){
+				if ($dfstype[$cond] == 'duplicateValues' OR $dfstype[$cond] == 'uniqueValues' OR $dfstype[$cond] == 'colorScale' OR $dfstype[$cond] == 'dataBar' OR $dfstype[$cond] == 'top10' OR $dfstype[$cond] == 'aboveAverage'){
 					$consize = explode(':', $crange[$cond]);
 					$ab = $this->charstonum($consize[0]);
 					$CCfirst = $ab['char'];
@@ -1841,30 +2149,221 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					$yz = $this->charstonum($consize[1]);
 					$CClast = $yz['char'];
 					$CRlast = $yz['num'];
-					$a = 0;
-					$duparr = array();
-					while ($CCfirst <= $CClast){
-						while ($CRfirst <= $CRlast){
-							$tcl = $this->numtochars($CCfirst).$CRfirst;
-							if ($Ddata[$tcl] == ''){
-								$duparr[$a] = $cell[$inv[$tcl]];
-							} else {
-								$duparr[$a] = $this->shared[$cell[$inv[$tcl]]];
+					// start of finding any duplicated cell values in areas of duplicate conditional formatting
+					if ($dfstype[$cond] == 'duplicateValues' OR $dfstype[$cond] == 'uniqueValues'){
+						$a = 0;
+						$duparr = array();
+						while ($CCfirst <= $CClast){
+							while ($CRfirst <= $CRlast){
+								$tcl = $this->numtochars($CCfirst).$CRfirst;
+								if ($Ddata[$tcl] == ''){
+									$duparr[$a] = $cell[$inv[$tcl]];
+								} else {
+									$duparr[$a] = $this->shared[$cell[$inv[$tcl]]];
+								}
+								++$a;
+								++$CRfirst;
 							}
-							++$a;
-							++$CRfirst;
+							++$CCfirst;
 						}
-						++$CCfirst;
-					}
-					foreach (array_count_values($duparr) as $value => $count) {
-						if ($count > 1) {
-							$dupl[$cond][] = $value;
+						foreach (array_count_values($duparr) as $value => $count) {
+							if ($count > 1) {
+								$dupl[$cond][] = $value;
+							}
 						}
 					}
+					// end of finding any duplicated cell values in areas of duplicate conditional formatting
+					// Start of finding values etc for colorScale, dataBar, top10 and aboveAverage conditional formatting
+					if ($dfstype[$cond] == 'colorScale' OR $dfstype[$cond] == 'dataBar' OR $dfstype[$cond] == 'top10' OR $dfstype[$cond] == 'aboveAverage'){
+						$csv = 0;
+						$CSsum[$cond] = $CSmin[$cond] = $CSmax[$cond] = 0;
+						$tt = 0;
+						$AAtot = 0;
+						while ($CCfirst <= $CClast){
+							while ($CRfirst <= $CRlast){
+								$tcl = $this->numtochars($CCfirst).$CRfirst;
+								$Atemp[$cond][$tt] = $cell[$inv[$tcl]];
+								++$tt;
+								if ($cell[$inv[$tcl]]){
+									$CSsum[$cond] = $CSsum[$cond] + $cell[$inv[$tcl]];
+									if ($csv == 0){
+										$CSmax[$cond] = $CSmin[$cond] = $cell[$inv[$tcl]];
+									} else if ($cell[$inv[$tcl]] < $CSmin[$cond]){
+										$CSmin[$cond] = $cell[$inv[$tcl]];
+									} else if ($cell[$inv[$tcl]] > $CSmax[$cond]){
+										$CSmax[$cond] = $cell[$inv[$tcl]];
+									}
+									$AAtot += $cell[$inv[$tcl]];
+									++$csv;
+								}
+								++$CRfirst;
+							}
+							++$CCfirst;
+						}
+						sort($Atemp[$cond]);
+						// find value for aboveAverage cond formatting
+						if ($dfstype[$cond] == 'aboveAverage'){
+							if ($dfSdev[$cond]){
+								$sdev = $this->std_deviation($Atemp[$cond]);
+								if ($dfSdev[$cond] == 1){
+								$Aave[$cond] = ($AAtot / $tt) + $sdev;
+								$Bave[$cond] = ($AAtot / $tt) - $sdev;
+								} else if ($dfSdev[$cond] == 2){
+								$Aave[$cond] = ($AAtot / $tt) + (2 * $sdev);
+								$Bave[$cond] = ($AAtot / $tt) - (2 * $sdev);
+								} else if ($dfSdev[$cond] == 3){
+								$Aave[$cond] = ($AAtot / $tt) + (3 * $sdev);
+								$Bave[$cond] = ($AAtot / $tt) - (3 * $sdev);
+								}
+							} else {
+								$Aave[$cond] = $Bave[$cond] = $AAtot / $tt;
+							}
+							
+						} 
+						// find value for top10 cond formatting
+						if ($dfstype[$cond] == 'top10'){
+							if ($dfpcent[$cond] == 1){
+								$drank = intval($tt * $dfrank[$cond] / 100);
+							} else {
+								$drank = $dfrank[$cond];
+							}
+							if ($dfbott[$cond] == 1){ // bottom ranking
+								$dr = $drank - 1;
+								$t10[$cond] = $Atemp[$cond][$dr];
+								$ttype[$cond] = "B";
+							} else { //top ranking
+								$dr = $tt - $drank;
+								$t10[$cond] = $Atemp[$cond][$dr];
+								$ttype[$cond] = "T";
+							}
+						}
+						//find min, middle and max values for colorscale formatting
+						if ($dfstype[$cond] == 'colorScale'){
+							//determine displayed min value
+							if ($cfvo[$cond][0] == 'percentile'){
+								$pindex = $cfvoval[$cond][0] / 100 * ($tt + 1);
+								$a1 = floor($pindex)-1;
+								$a2 = ceil($pindex)-1;
+								$a3 = $pindex -1 - $a1;
+								if ($pindex == ($a1 + 1)){
+									$CSmin1[$cond] = $Atemp[$cond][$a1];
+								} else {
+									$CSmin1[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+								}
+							} else if ($cfvo[$cond][0] == 'percent'){
+								$CSmin1[$cond] = ($cfvoval[$cond][0]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
+							} else if ($cfvo[$cond][0] == 'num'){
+								$CSmin1[$cond] = $cfvoval[$cond][0];
+							} else {
+								$CSmin1[$cond] = $CSmin[$cond];
+							}
+							if ($cfvo[$cond][2]){
+								$tmp = 2;
+								//determine middle colour value for a 3 colour colorScale
+								if ($cfvo[$cond][1] == 'percentile'){
+									$pindex = $cfvoval[$cond][1] / 100 * ($tt + 1);
+									$a1 = floor($pindex)-1;
+									$a2 = ceil($pindex)-1;
+									$a3 = $pindex -1 - $a1;
+									if ($pindex == ($a1 + 1)){
+										$CSave[$cond] = $Atemp[$cond][$a1];
+									} else {
+										$CSave[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+									}
+								} else if ($cfvo[$cond][1] == 'percent'){
+									$CSave[$cond] = ($cfvoval[$cond][1]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
+								} else if ($cfvo[$cond][1] == 'num'){
+									$CSave[$cond] = $cfvoval[$cond][1];
+								}
+							} else {
+								$tmp = 1;
+							}
+							// determine displayed max value
+							if ($cfvo[$cond][$tmp] == 'percentile'){
+								$pindex = $cfvoval[$cond][$tmp] / 100 * ($tt + 1);
+								$a1 = floor($pindex)-1;
+								$a2 = ceil($pindex)-1;
+								$a3 = $pindex -1 - $a1;
+								if ($pindex == ($a1 + 1)){
+									$CSmax1[$cond] = $Atemp[$cond][$a1];
+								} else {
+									$CSmax1[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+								}
+							} else if ($cfvo[$cond][$tmp] == 'percent'){
+								$CSmax1[$cond] = ($cfvoval[$cond][$tmp]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
+							} else if ($cfvo[$cond][$tmp] == 'num'){
+								$CSmax1[$cond] = $cfvoval[$cond][$tmp];
+							} else {
+								$CSmax1[$cond] = $CSmax[$cond];
+							}
+							
+						}
+						//Find the min and max etc. values of the displayed dataBar
+						if ($dfstype[$cond] == 'dataBar' AND $CScolour[$cond][0] <> ''){
+							if ($cfvoval[$cond][0]){
+								if ($cfvo[$cond][0] == 'percent'){
+									$Range = $CSmax[$cond] - $CSmin[$cond];
+									$dbmin[$cond] = (($cfvoval[$cond][0] / 100) * $Range) + $CSmin[$cond];
+								} else if ($cfvo[$cond][0] == 'percentile'){
+									$pindex = $cfvoval[$cond][0] / 100 * (count($Atemp[$cond]) + 1);
+									$a1 = floor($pindex)-1;
+									$a2 = ceil($pindex)-1;
+									$a3 = $pindex -1 - $a1;
+									if ($pindex == ($a1 + 1)){
+										$dbmin[$cond] = $Atemp[$cond][$a1];
+									} else {
+										$dbmin[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+									}
+								} else if ($cfvo[$cond][0] == 'num'){
+									$dbmin[$cond] = $cfvoval[$cond][0];
+								}
+							} else {
+								if ($CSmin[$cond] < 0){
+									$dbmin[$cond] = $CSmin[$cond];
+								} else {
+									$dbmin[$cond] = 0;
+								}
+							}
+							if ($cfvoval[$cond][1]){
+								if ($cfvo[$cond][1] == 'percent'){
+									$Range = $CSmax[$cond] - $CSmin[$cond];
+									$dbmax[$cond] = (($cfvoval[$cond][1] / 100) * $Range) + $CSmin[$cond];
+								} else if ($cfvo[$cond][1] == 'percentile'){
+									$pindex = $cfvoval[$cond][1] / 100 * (count($Atemp[$cond]) + 1);
+									$a1 = floor($pindex)-1;
+									$a2 = ceil($pindex)-1;
+									$a3 = $pindex-1 - $a1;
+									if ($pindex == ($a1 + 1)){
+										$dbmax[$cond] = $Atemp[$cond][$a1];
+									} else {
+										$dbmax[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+									}
+								} else {
+									$dbmax[$cond] = $cfvoval[$cond][1];
+								}
+							} else {
+								if ($CSmax[$cond] > 0){
+									$dbmax[$cond] = $CSmax[$cond];
+								} else {
+									$dbmax[$cond] = 0;
+								}
+							}
+							$dbdiff[$cond] = $dbmax[$cond] - $dbmin[$cond];
+							if ($dbmin[$cond] < 0){
+								$dbnegR[$cond] = (abs($dbmin[$cond]) / $dbdiff[$cond]) * 100;
+							} else {
+								$dbnegR[$cond] = 0;
+							}
+							if ($dbmax[$cond] > 0){
+								$dbposR[$cond] = 100 - $dbnegR[$cond];
+							}
+							
+						}
+					}
+					// End of finding values etc for colorScale and dataBar conditional formatting
 				}
 				++$cond;
 			}
-			// end of finding any duplicated cell values in areas of duplicate conditional formatting
 
 			// start of finding cells which need conditional formatting
 			$cond = 0;
@@ -1954,6 +2453,116 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 									$cfound = 'Y';
 								}
 							}
+						} else if ($dfstype[$cond] == 'aboveAverage'){
+							if ($dfUave[$cond] == 'B'){
+								if ($dfEave[$cond] == '1'){
+									if ($cell[$inv[$cl]] <= $Bave[$cond]){
+										$cfound = 'Y';
+									}
+								} else {
+									if ($cell[$inv[$cl]] < $Bave[$cond]){
+										$cfound = 'Y';
+									}
+								}
+							} else {
+								if ($dfEave[$cond] == '1'){
+									if ($cell[$inv[$cl]] >= $Aave[$cond]){
+										$cfound = 'Y';
+									}
+								} else {
+									if ($cell[$inv[$cl]] > $Aave[$cond]){
+										$cfound = 'Y';
+									}
+								}
+							}
+						} else if ($dfstype[$cond] == 'top10'){
+							if ($ttype[$cond] == 'B' AND  $cell[$inv[$cl]] <= $t10[$cond]){
+								$cfound = 'Y';
+							}
+							if ($ttype[$cond] == 'T' AND $cell[$inv[$cl]] >= $t10[$cond]){
+								$cfound = 'Y';
+							}
+						} else if ($dfstype[$cond] == 'colorScale'){
+							$Css[$cl]['Cfill'] = " background-color: #".$this->findcolorScale($CScolour[$cond], $CSmin1[$cond], $CSmax1[$cond], $CSave[$cond], $cell[$inv[$cl]]).";";
+						} else if ($dfstype[$cond] == 'dataBar' AND $CScolour[$cond][0] <> ''){
+							$dbt = 0;
+							while ($dbt < $dB){
+								if ($crange[$cond] ==  $dBref[$dbt]){
+									$Dfound = $dbt;
+								}
+								++$dbt;
+							} 
+							if ($Rhight[$CRfirst]){
+								if ($Rhight[$CRfirst] > 20){
+									$dbheight = $Rhight[$CRfirst] - 5;
+								} 
+							} else {
+									$dbheight = 14;
+								}
+							if ($cell[$inv[$cl]] >= 0){
+								if ($dbmin[$cond] < 0 ){
+									$dbval = ($cell[$inv[$cl]] / $dbmax[$cond]) * $dbposR[$cond];
+									
+								} else {
+									$dbval = (($cell[$inv[$cl]] - $dbmin[$cond]) / ($dbmax[$cond] - $dbmin[$cond])) * $dbposR[$cond];
+								}
+								if ($dbval > $dbposR[$cond]){
+									$dbval = $dbposR[$cond];
+								}
+								if ($dbval < 0){
+									$dbval = 0;
+								}
+								$Css[$cl]['dBfill'] = "<div style = 'width: ".$dbval."%; margin-top: 1px; height: ".$dbheight."px;";
+								if ($dBGrad[$Dfound] == 1){
+									$Css[$cl]['dBfill'] .= " background: linear-gradient(to right, #".$CScolour[$cond][0]." 0%, #FFFFFF 100%);";
+								} else {
+									$Css[$cl]['dBfill'] .= " background: #".$CScolour[$cond][0].";";
+								}
+								if ($dBBord[$Dfound] == 1 AND $dbval <> 0){
+									$Css[$cl]['dBfill'] .= " border: 1px solid #".$dBBcol[$Dfound].";";
+								} else {
+									$Css[$cl]['dBfill'] .= " border-top: 1px solid #".$CScolour[$cond][0].";";
+									$Css[$cl]['dBfill'] .= " border-bottom: 1px solid #".$CScolour[$cond][0].";";
+								}
+								if ($dbnegR[$cond] <> 0){
+									$Css[$cl]['dBfill'] .= " margin-left: ".$dbnegR[$cond]."%; border-left: 1px dashed #".$dBAcol[$Dfound].";";
+								}
+								$Css[$cl]['dBfill'] .= " '></div>";
+							}
+							if ($cell[$inv[$cl]] < 0){
+								if ($dbmax[$cond] < 0 ){
+									$dbval2 = ($cell[$inv[$cl]] / $dbmin[$cond]) * $dbnegR[$cond];
+								} else {
+									$dbval2 = (($cell[$inv[$cl]] - $dbmin[$cond]) / (0 - $dbmin[$cond])) * $dbnegR[$cond];
+								}
+								if ($dbval2 > 100){
+									$dbval2 = 100;
+								}
+								if ($dbval2 < 0){
+									$dbval2 = 0;
+								}
+								$dbval = $dbnegR[$cond] - $dbval2;
+								$Css[$cl]['dBfill'] = "<div style = 'width: ".$dbval."%; margin-top: 1px; height: ".$dbheight."px;";
+							if ($dBGrad[$Dfound] == 1){
+									$Css[$cl]['dBfill'] .= " background: linear-gradient(to right, #FFFFFF 0%, #".$dBNFcol[$Dfound]." 100%);";
+								} else {
+									$Css[$cl]['dBfill'] .= " background: #".$dBNFcol[$Dfound].";";
+								}
+								if ($dBBord[$Dfound] == 1 AND $dbval <> 0){
+									$Css[$cl]['dBfill'] .= " border: 1px solid #".$dBNBcol[$Dfound].";";
+								} else {
+									$Css[$cl]['dBfill'] .= " border-top: 1px solid #".$dBNFcol[$Dfound].";";
+									$Css[$cl]['dBfill'] .= " border-bottom: 1px solid #".$dBNFcol[$Dfound].";";
+								}
+								if ($dbval <> 0){
+									$Css[$cl]['dBfill'] .= " margin-left: ".$dbval2."%;";
+								}
+								if ($dbmax[$cond] > 0){
+									$Css[$cl]['dBfill'] .= "  border-right: 1px dashed #".$dBAcol[$Dfound].";";
+								}
+								$Css[$cl]['dBfill'] .= " '></div>";
+							}
+							
 						}
 						if ($cfound == 'Y'){
 							if ($Cellstyle[$dfsref[$cond]]['Cfill']){
@@ -2008,10 +2617,18 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$cc = 0;
 			while ($cc <= $tst){ 
 				//Start of processing number formatting
-				if ($cell[$cc]){ 
+				if (($cell[$cc] >= 0 OR $cell[$cc] < 0) AND $cell[$cc] <> '' AND $Ddata[$cellno[$cc]] == ''){ 
 					$temp = $temp2 = '';
 					$Ncode = " ".$Cellstyle[$Sdata[$cellno[$cc]]]['nform'];
-					if (substr($Cellstyle[$Sdata[$cellno[$cc]]]['nform'],-2,2) == ';@' OR strpos($Cellstyle[$Sdata[$cellno[$cc]]]['nform'],'mm')){
+					if ($Cellstyle[$Sdata[$cellno[$cc]]]['nform'] == 'ZZZ'){
+						$tnint = (int)$cell[$cc];
+						$trem = $cell[$cc] - $tnint;
+						$noh = ($tnint * 24) + (int)($trem * 24);
+						$tom = (($trem * 24) - (int)($trem * 24)) * 60;
+						$nom = (int)$tom;
+						$nos = round(($tom - $nom) * 60);
+						$cell[$cc] = $noh.":".$nom.":".$nos;
+					} else if (substr($Cellstyle[$Sdata[$cellno[$cc]]]['nform'],-2,2) == ';@' OR strpos($Cellstyle[$Sdata[$cellno[$cc]]]['nform'],'mm')){
 						// Start of apply date and time formatting to the relevant cell contents
 						if (substr($Cellstyle[$Sdata[$cellno[$cc]]]['nform'],-2,2) == ';@' ){
 							$temp = " ".substr($Cellstyle[$Sdata[$cellno[$cc]]]['nform'],0,-2);
@@ -2126,8 +2743,31 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 								$temp = $cell[$cc] * 100; // %age number formats
 								$Dpoint = substr($Ncode,2,1); //type of decimal point
 								$cell[$cc] = number_format($temp,$Ndec,$Dpoint)."%"; //display %age numbers
-							} else if (substr($Ncode,-1,1) == '0'){
-								if (substr($Ncode,1,1) == '#'){ //plain number with thousands separator
+							} else if (substr($Ncode,-1,1) == '0'){ //When alternatives for negative numbers and no currency unit
+								if (strpos($Ncode,';')){
+									$Dneg = explode(';',$Ncode);
+									$num0 = substr_count($Dneg[0],0);
+									$Ndec1 = $num0 - 1; //number of decimal places
+									if ($cell[$cc] < 0){
+										$Dneg[1] = " ".$Dneg[1];
+										$curr = $this->currency($Dneg[1]);
+										$cell[$cc] = abs($cell[$cc]);
+									} else {
+										$curr = $this->currency($Dneg[0]);
+									}
+									$minus = $curr['minus'];
+									$sep = $curr['sep'];
+									$Dpoint = $curr['point'];
+									$red = $curr['red'];
+									if ($red == 'Y'){
+										$cell[$cc] = "<span style='color:red'>".$minus.number_format($cell[$cc],$Ndec1,$Dpoint,$sep)."</span>"; //Display with no currency unit
+										
+									} else {
+										$cell[$cc] = $minus.number_format($cell[$cc],$Ndec1,$Dpoint,$sep); //Display currency with no currency unit
+									}
+										
+									
+								} else if (substr($Ncode,1,1) == '#'){ //plain number with thousands separator
 									$sep = substr($Ncode,2,1); //type of separator
 									$Dpoint = substr($Ncode,6,1); //type of decimal point
 									$cell[$cc] = number_format($cell[$cc],$Ndec,$Dpoint,$sep); //Display numbers with a thousands separator
@@ -2177,7 +2817,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 								}
 
 							}
-						} else { //for leading currency symbols
+						} else { //for leading currency symbols and all Accounting formats
 							if (strpos($Ncode,';')){ //when there is an alternative formatting for -ve values
 								$min = '';
 								$Dneg = explode(';',$Ncode);
@@ -2209,7 +2849,17 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 									
 								} else {
 									if ($account == 'Y'){ //For Accounting alignment
-										$cell[$cc] = "<div style='float:left;'>".$min.$minus.$curr['unit']."</div><div style='float:right;'>".number_format($cell[$cc],$Ndec1,$Dpoint,$sep)."</div>"; //Display currency with a leading currency unit
+										$clead = $ctrail = '';
+										if ($curr['pos'] == 'T'){
+											$ctrail = $curr['unit'];
+										} else {
+											$clead = $curr['unit'];
+										}
+										if ($cell[$cc] === '0'){
+											$cell[$cc] = "<div style='float:left;'>&nbsp;".$min.$minus.$clead."</div><div style='float:right;'>-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;".$ctrail."&nbsp;</div>"; // In accounting format '0' is replaced by a '-'
+										} else {
+											$cell[$cc] = "<div style='float:left;'>&nbsp;".$min.$minus.$clead."</div><div style='float:right;'>".number_format($cell[$cc],$Ndec1,$Dpoint,$sep)."&nbsp;".$ctrail."&nbsp;</div>"; //Display accountancy format with a leading or trailing currency unit
+										}
 									} else { //for normal alignment
 										$cell[$cc] = $min.$minus.$curr['unit'].number_format($cell[$cc],$Ndec1,$Dpoint,$sep); //Display currency with a leading currency unit
 									}
@@ -2227,6 +2877,28 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 									$cell[$cc] = $curr['unit'].number_format($cell[$cc],$Ndec,$Dpoint,$sep); //Display currency with a leading currency unit
 								}
 							}
+						}
+					} else {
+						if ($cell[$cc] < 10){
+							$cell[$cc] = round($cell[$cc],9);
+						} else if ($cell[$cc] < 100){
+							$cell[$cc] = round($cell[$cc],8);
+						} else if ($cell[$cc] < 1000){
+							$cell[$cc] = round($cell[$cc],7);
+						} else if ($cell[$cc] < 10000){
+							$cell[$cc] = round($cell[$cc],6);
+						} else if ($cell[$cc] < 100000){
+							$cell[$cc] = round($cell[$cc],5);
+						} else if ($cell[$cc] < 1000000){
+							$cell[$cc] = round($cell[$cc],4);
+						} else if ($cell[$cc] < 10000000){
+							$cell[$cc] = round($cell[$cc],3);
+						} else if ($cell[$cc] < 100000000){
+							$cell[$cc] = round($cell[$cc],2);
+						} else if ($cell[$cc] < 1000000000){
+							$cell[$cc] = round($cell[$cc],1);
+						} else {
+							$cell[$cc] = round($cell[$cc],0);
 						}
 					}
 				}
@@ -2311,7 +2983,11 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$forcellT[$cellno[$cc]] = $forcell.$Cellstyle[$Sdata[$cellno[$cc]]]['athor']; //cell formatting for text
 				
 				if ($Ddata[$cellno[$cc]] == ''){
-					$Wdata[$cellno[$cc]] = " style='".$forcellN[$cellno[$cc]]."'><span style='".$fortext."'>".$cell[$cc]."</span></td>"; //get text and formatting for numbers
+					if ($Css[$cellno[$cc]]['dBfill'] == ''){
+						$Wdata[$cellno[$cc]] = " style='".$forcellN[$cellno[$cc]]."'><span style='".$fortext."'>".$cell[$cc]."</span></td>"; //get text and formatting for numbers
+					} else {
+						$Wdata[$cellno[$cc]] = " style='".$forcellN[$cellno[$cc]]."'><span style='".$fortext."'>".$Css[$cellno[$cc]]['dBfill']."<div style='position: relative; bottom: 15px; margin-bottom: -15px;'>".$cell[$cc]."</div></span></td>"; //get text and formatting for numbers						
+					}
 				} else {
 					$Wdata[$cellno[$cc]] = " style='".$forcellT[$cellno[$cc]]."'><span style='".$fortext."'>".$this->shared[$cell[$cc]]."</span></td>"; //get text and formatting for strings (come from 'Shared Strings')
 				}
