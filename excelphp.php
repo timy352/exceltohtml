@@ -2729,7 +2729,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 						} else {
 							$cell[$cc] = $Fint." ".$DD."/".$DI;
 						}
-					} else if (strpos($Ncode,0)){
+					} else if (strpos($Ncode,'0')){
 						$ff = strpos($Ncode,'#');
 						if ($ff){
 							$fff = substr($Ncode,$ff);
