@@ -2,9 +2,9 @@
 
 ## DESCRIPTION
 
-This php script will convert an Excel .XLSX file to html and display the resultant code (including images) in a web page. It will recognise nearly all the formatting, images etc. in the original Excel XLSX document including the more common Conditional Formatting styles. At present it doesn't support graphs and charts. 
+This php script will convert an Excel .XLSX file to html and display the resultant code (including images) in a web page. It will recognise nearly all the formatting, images etc. in the original Excel XLSX document including the most Conditional Formatting styles except Icon Sets and those based on formulas. At present it doesn't support graphs and charts. 
 
-NOTE:- Needs at least php 5 and will run on up to (at least) php 8.1.
+NOTE:- Needs at least php 5 and will run on up to (at least) php 8.2.
 
 NOTE:- It will not read the older 'XLS' Excel format. In this case it will give an error message saying that it is a 'non zip file'.
 
@@ -25,7 +25,7 @@ Greater Than, Greater Than or Equal to, Less Than, Less Than or Equal to, Betwee
 
 6. It will now reproduce virtually all other conditional formatting except Icon Sets type and also any based on formulas. I.e. it supports Data Bar, Colour Scale, Top N(N%), Bottom N(N%), Above/below average and 1,2,3 Standard Deviation away.
 
-7. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown.
+7. It will just display the area of populated spreadsheet cells. Any blank columns or rows, either before or after the populated cells are not shown. In the 'Print' mode it will display the Excel 'Print Area' - assuming that this has been set.
 
 8. It will display any images in the correct cell locations as per the spreadsheet. The images are also saved to the default folder 'images'. However this folder/directory name can be changed if desired.
 
@@ -37,11 +37,13 @@ Greater Than, Greater Than or Equal to, Less Than, Less Than or Equal to, Betwee
 
 12. By default column widths and row heights are as per the original Excel spreadsheet. However an 'Auto' mode is available as an option where the browser is allowed to choose them itself. This option can be useful for wide spreadsheets and/or narrower screens.
 
-13. If the default 'Print' option is selected, it will look similar to a printed Excel sheet, with headers and footers displayed, but no row and column references.
+13. If the default 'Print' option is selected, it will look similar to a printed Excel sheet following the 'Print Area' setting (if set), with headers and footers displayed, but no row and column references.
 
 14. If the 'Spreadsheet' option is selected then it will display the name of the sheet at the top together with the correct row and column references in the usual gray background along the top and left hand side as per a spreadsheet. Headers and footers will not be shown in this mode.
 
-15. The resultant html code is designed to be used either as is, or (after saving) included in another html file.
+15. It will follow the Excel spreadsheet as to whether gridlines are shown or not. When gridlines would normally be shown there is an option to not display them.
+
+16. The resultant html code is designed to be used either as is, or (after saving) included in another html file.
 
 If anyone finds any problems or has sugestions for enhancements, please contact me on timothy.edwards1@btinternet.com 
 
@@ -113,18 +115,26 @@ $text = $rt->readDocument('FILENAME','2'); Sheet two is shown selected for displ
 ## Column Widths and Row Heights - Option 2
 Default is to make the Column Widths and Row Heights approx the same as the original spreadsheet. This is selected by the second character in the last parameter of readDocument(), i.e.:-
 ```
-$text = $rt->readDocument('FILENAME','AO'); The Column Widths and Row Heights will be approx the same as the original spreadsheet. (Default)
+$text = $rt->readDocument('FILENAME','AO'); The Column Widths and Row Heights will be approx the same as the original spreadsheet. (Default, so option character not necessarily needed)
 $text = $rt->readDocument('FILENAME','AA'); 'Auto' mode, it will let the browser choose the Column Widths and Row Heights.
 ```
 
 ## 'Print' or 'Spreadsheet' mode - Option 3
 Default is to make display similar to a printed spreadsheet. This is selected by the third character in the last parameter of readDocument(), i.e.:-
 ```
-$text = $rt->readDocument('FILENAME','AOP'); 'Print' mode - Includes headers and footers, but no row or column references or sheet name. (Default)
+$text = $rt->readDocument('FILENAME','AOP'); 'Print' mode - Displays the 'Print Area' (if set). Includes headers and footers, but no row or column references or sheet name. (Default, so option character not necessarily needed)
 $text = $rt->readDocument('FILENAME','AOS'); 'Spreadsheet' mode - Includes row and column references and the sheet name but no headers/footers.
 ```
 
+## Gridlines display mode - Option 4
+You can choose whether to have the gridlines or not. Default is to have them.
+```
+$text = $rt->readDocument('FILENAME','AOPG');  'Display Gridlines' mode. Will display gridlines (assuming that gridlines are shown in the Excel document. (Default, so option character not necessarily needed)
+$text = $rt->readDocument('FILENAME','AOPN');  'No Gridlines' mode. Will not display gridlines
+```
 ## UPDATE NOTES
+
+Version 1.0.3 - A bug is cleared that prevented some images from being shown. Also it now follows the original Excel spreadsheet as to whether gridlines are shown or not. There is also a new option to not show gridlines when they would otherwise be shown. When in the 'Print' display mode, it will now just show the Excel defined 'Print Area' - assuming it is set. Also in some environments a lot of warning messages were displayed. These have now been cleared.
 
 Version 1.0.2 - Removed a depreciated aspect of strpos.
 
