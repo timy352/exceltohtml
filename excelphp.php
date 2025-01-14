@@ -1,5 +1,5 @@
 <?php
-class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
+class ExcelPHP // Version V1.0.3  - Timothy Edwards - 14 Jan 2025
 {
 	private $debug = false;
 	private $file;
@@ -8,10 +8,12 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	private $encoding = 'UTF-8';
 	private $SW; //option for column widths
 	private $PR; //Spreadsheet or printout option
+	private $GR; //Grid Lines option
 	private $tmpDir = 'images'; //default directory for images
 	private $Sheetname = [];
 	private $Sheetno = [];
 	private $Sheetid = [];
+	private $PAtext = [];
 	private $Sheetnum;
 	private $shared = [];
 	private $FSFactor = 13; //Font size conversion factor
@@ -23,7 +25,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	private $DevS; //Default font size
 	private $themecol = [];
 	private $Chyper = [];
-	private $Cindex = array('8' => '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '800000', '008000', '000080', '808000', '800080', '008080', 'C0C0C0', '808080', '9999FF', '993366', 'FFFFCC', 'CCFFFF', '660066', 'FF8080', '0066CC', 'CCCCFF', '000080', 'FF00FF', 'FFFF00', '00FFFF', '800080', '800000', '008080', '0000FF', '00CCFF', 'CCFFFF', 'CCFFCC', 'FFFF99', '99CCFF', 'FF99CC', 'CC99FF', 'FFCC99', '3366FF', '33CCCC', '99CC00', 'FFCC00', 'FF9900', 'FF6600', '666699', '969696', '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333', '000000'); //Array of rgb hex index colours
+	private $Cindex = array('8' => '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '800000', '008000', '000080', '808000', '800080', '008080', 'C0C0C0', '808080', '9999FF', '993366', 'FFFFCC', 'CCFFFF', '660066', 'FF8080', '0066CC', 'CCCCFF', '000080', 'FF00FF', 'FFFF00', '00FFFF', '800080', '800000', '008080', '0000FF', '00CCFF', 'CCFFFF', 'CCFFCC', 'FFFF99', '99CCFF', 'FF99CC', 'CC99FF', 'FFCC99', '3366FF', '33CCCC', '99CC00', 'FFCC00', 'FF9900', 'FF6600', '666699', '969696', '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333', '000000', '000000', '81' => '000000'); //Array of rgb hex index colours
 
 	
 	/**
@@ -82,15 +84,18 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	 */
 	private function charstonum($cellname)
 	{
-		$CharF = preg_replace("/[^A-Z]/", '', $cellname);
-		$Fchar1 = ord(substr($CharF,0,1)) - 64;
-		$Fchar2 = ord(substr($CharF,1,1)) - 64;
-		if (strlen($CharF) == 1){
-			$Ncol['char'] = $Fchar1;
-		} else {
-			$Ncol['char'] = ($Fchar1 * 26) + $Fchar2;
+		$Ncol = array();
+		if (isset($cellname)){
+			$CharF = preg_replace("/[^A-Z]/", '', $cellname);
+			$Fchar1 = ord(substr($CharF,0,1)) - 64;
+			$Fchar2 = ord(substr($CharF,1,1)) - 64;
+			if (strlen($CharF) == 1){
+				$Ncol['char'] = $Fchar1;
+			} else {
+				$Ncol['char'] = ($Fchar1 * 26) + $Fchar2;
+			}
+			$Ncol['num'] = preg_replace("/[^0-9]/", '', $cellname);
 		}
-		$Ncol['num'] = preg_replace("/[^0-9]/", '', $cellname);
 		return($Ncol);
 	}
 
@@ -183,13 +188,20 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		//Find sheet names and ids
 		$reader1 = new XMLReader();
 		$reader1->XML($xl_xml->saveXML());
-		$sn = 0;
+		$sn =  $pa = 0;
 		while ($reader1->read()) {
 			if ($reader1->name == 'sheet') {
 				$this->Sheetname[$sn] = $reader1->getAttribute("name");
 				$this->Sheetno[$sn] = $reader1->getAttribute("sheetId"); // not currently used
 				$this->Sheetid[$sn] = $reader1->getAttribute("r:id"); // not currently used
 				++$sn;
+			}
+			if ($reader1->nodeType == XMLREADER::ELEMENT && $reader1->name == 'definedName') {
+				$PAname[$pa] = $reader1->getAttribute("name");
+				if (strpos($PAname[$pa], 'Print_Area')){ // get print area
+					$this->PAtext[$pa] = " ".htmlentities($reader1->expand()->textContent);
+					++$pa;
+				}
 			}
 		}
 		$this->Sheetnum = $sn;
@@ -214,9 +226,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					$this->themecol[3] = $st;
 				} else if ($c == 3){
 					$this->themecol[2] = $st;
-				} else if ($c> 9){
-					$tt = $c-10;
-					$this->Chyper[$tt] = $st;
+//				} else if ($c> 9){
+//					$tt = $c-10;
+//					$this->Chyper[$tt] = $st;
 				} else {
 					$this->themecol[$c] = $st;
 				}
@@ -230,7 +242,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$reader2 = new XMLReader();
 			$reader2->XML($shared_xml->saveXML());
 			$sh = 0;
-			$si = $r = $fbold = $fund = $fital = $fsize = $fcol = $fname = $ftext = '';
+			$si = $r = $fbold = $fund = $fital = $fsize = $fcol = $fname = $ftext = $script = $fstrike = $fscript = '';
 			while ($reader2->read()) {
 				if ($reader2->nodeType == XMLREADER::ELEMENT && $reader2->name == 'si') {
 				$si = 'Y';
@@ -389,6 +401,8 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			}
 		}
 		
+		$Fimage = $Limage = $image = $Imxs = $Imys = array();
+		$pictno = 0;
 		if (isset($xml_draw)){ 
 			$reader = new XMLReader;
 			$reader->XML($draw_xml->saveXML());
@@ -396,12 +410,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$xfrm = $im = $nfill = '';
 			while ($reader->read()) {
 				if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'xdr:twoCellAnchor') {
-					if ($nfill == 'Y'){
-						$Fimage[$pictno] = $Limage[$pictno] = $Imxs[$pictno] = $Imys[$pictno] = $relId[$pictno] = '';
-						$nfill = '';
-					} else {
-						++$pictno;
-					}
+					++$pictno;
 				}
 				if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'xdr:from') {
 					$Fimage[$pictno] = $ICol.$Irow; //first cell location for image
@@ -413,7 +422,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					$temp = 1 + htmlentities($reader->expand()->textContent);
 					$ICol = $this->numtochars($temp);
 				}
-				if ($reader->nodeType == XMLREADER::ELEMENT && $reade->name == 'xdr:colOff') {
+				if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'xdr:colOff') {
 					$ICoff = htmlentities($reader->expand()->textContent); //not used at present
 				}
 				if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'xdr:row') {
@@ -435,12 +444,10 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				if ($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'a:xfrm') {
 					$xfrm = '';
 				}
-				if ($reader->name == 'a:noFill') {
-					$nfill = 'Y';
-				}
 			}
 			$ci = 0;
 			while ($ci < $pictno){
+
 				$reader2 = new XMLReader;
 				$reader2->XML($draw_rels_xml->saveXML());
 				while ($reader2->read()) {
@@ -468,7 +475,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	/**
 	 * Creates an image in the filesystem
 	 *  
-	 * @param objetc $image - The image object
+	 * @param object $image - The image object
 	 * @param string $relId - The image relationship Id
 	 * @param string $name - The image name
 	 * @return Array - With image tag definition
@@ -693,65 +700,69 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	 */
 	private function findcolorScale($CScolour, $CSmin, $CSmax, $CSave, $cell)
 	{
-		if ($cell < $CSmin){
-			$cell = $CSmin;
-		}
-		if ($cell > $CSmax){
-			$cell = $CSmax;
-		}
-		$Numcol = count($CScolour);
-		if ($Numcol == 3){
-			$hsla = $this->hextohsl($CScolour[0]);
-			$hslb = $this->hextohsl($CScolour[1]);
-			$hslc = $this->hextohsl($CScolour[2]);
-			if ($cell < $CSave){
-				if (abs($hsla['h'] - $hslb['h']) > 180){
-					if ($hsla['h'] > $hslb['h']){
-						$hsla['h'] = $hsla['h'] - 360;
-					} else {
-						$hslb['h'] = $hslb['h'] - 360;
+		if ($CSmin <> $CSmax) {
+			if ($cell < $CSmin){
+				$cell = $CSmin;
+			}
+			if ($cell > $CSmax){
+				$cell = $CSmax;
+			}
+			$Numcol = count($CScolour);
+			if ($Numcol == 3){
+				$hsla = $this->hextohsl($CScolour[0]);
+				$hslb = $this->hextohsl($CScolour[1]);
+				$hslc = $this->hextohsl($CScolour[2]);
+				if ($cell < $CSave){
+					if (abs($hsla['h'] - $hslb['h']) > 180){
+						if ($hsla['h'] > $hslb['h']){
+							$hsla['h'] = $hsla['h'] - 360;
+						} else {
+							$hslb['h'] = $hslb['h'] - 360;
+						}
 					}
+					$newH = $hsla['h'] + (($hslb['h'] - $hsla['h']) * ($cell - $CSmin) / ($CSave - $CSmin));
+					$newS = $hsla['s'] + (($hslb['s'] - $hsla['s']) * ($cell - $CSmin) / ($CSave - $CSmin));
+					$newL = $hsla['l'] + (($hslb['l'] - $hsla['l']) * ($cell - $CSmin) / ($CSave - $CSmin));
+					if ($newH < 0){
+						$newH = $newH + 360;
+					}
+					$rgb = $this->hsltohex($newH, $newS, $newL);	
+				} else {
+					if (abs($hslb['h'] - $hslc['h']) > 180){
+						if ($hslb['h'] > $hslc['h']){
+							$hslb['h'] = $hslb['h'] - 360;
+						} else {
+							$hslc['h'] = $hslc['h'] - 360;
+						}
+					}
+					$newH = $hslb['h'] + (($hslc['h'] - $hslb['h']) * ($cell - $CSave) / ($CSmax - $CSave));
+					$newS = $hslb['s'] + (($hslc['s'] - $hslb['s']) * ($cell - $CSave) / ($CSmax - $CSave));
+					$newL = $hslb['l'] + (($hslc['l'] - $hslb['l']) * ($cell - $CSave) / ($CSmax - $CSave));
+					if ($newH < 0){
+						$newH = $newH + 360;
+					}
+					$rgb = $this->hsltohex($newH, $newS, $newL);	
 				}
-				$newH = $hsla['h'] + (($hslb['h'] - $hsla['h']) * ($cell - $CSmin) / ($CSave - $CSmin));
-				$newS = $hsla['s'] + (($hslb['s'] - $hsla['s']) * ($cell - $CSmin) / ($CSave - $CSmin));
-				$newL = $hsla['l'] + (($hslb['l'] - $hsla['l']) * ($cell - $CSmin) / ($CSave - $CSmin));
-				if ($newH < 0){
-					$newH = $newH + 360;
-				}
-				$rgb = $this->hsltohex($newH, $newS, $newL);	
 			} else {
-				if (abs($hslb['h'] - $hslc['h']) > 180){
-					if ($hslb['h'] > $hslc['h']){
-						$hslb['h'] = $hslb['h'] - 360;
-					} else {
-						$hslc['h'] = $hslc['h'] - 360;
+				$hsla = $this->hextohsl($CScolour[0]);
+				$hslb = $this->hextohsl($CScolour[1]);
+					if (abs($hsla['h'] - $hslb['h']) > 180){
+						if ($hsla['h'] > $hslb['h']){
+							$hsla['h'] = $hsla['h'] - 360;
+						} else {
+							$hslb['h'] = $hslb['h'] - 360;
+						}
 					}
-				}
-				$newH = $hslb['h'] + (($hslc['h'] - $hslb['h']) * ($cell - $CSave) / ($CSmax - $CSave));
-				$newS = $hslb['s'] + (($hslc['s'] - $hslb['s']) * ($cell - $CSave) / ($CSmax - $CSave));
-				$newL = $hslb['l'] + (($hslc['l'] - $hslb['l']) * ($cell - $CSave) / ($CSmax - $CSave));
-				if ($newH < 0){
-					$newH = $newH + 360;
-				}
-				$rgb = $this->hsltohex($newH, $newS, $newL);	
+					$newH = $hsla['h'] + (($hslb['h'] - $hsla['h']) * ($cell - $CSmin) / ($CSmax - $CSmin));
+					$newS = $hsla['s'] + (($hslb['s'] - $hsla['s']) * ($cell - $CSmin) / ($CSmax - $CSmin));
+					$newL = $hsla['l'] + (($hslb['l'] - $hsla['l']) * ($cell - $CSmin) / ($CSmax - $CSmin));
+					if ($newH < 0){
+						$newH = $newH + 360;
+					}
+					$rgb = $this->hsltohex($newH, $newS, $newL);	
 			}
 		} else {
-			$hsla = $this->hextohsl($CScolour[0]);
-			$hslb = $this->hextohsl($CScolour[1]);
-				if (abs($hsla['h'] - $hslb['h']) > 180){
-					if ($hsla['h'] > $hslb['h']){
-						$hsla['h'] = $hsla['h'] - 360;
-					} else {
-						$hslb['h'] = $hslb['h'] - 360;
-					}
-				}
-				$newH = $hsla['h'] + (($hslb['h'] - $hsla['h']) * ($cell - $CSmin) / ($CSmax - $CSmin));
-				$newS = $hsla['s'] + (($hslb['s'] - $hsla['s']) * ($cell - $CSmin) / ($CSmax - $CSmin));
-				$newL = $hsla['l'] + (($hslb['l'] - $hsla['l']) * ($cell - $CSmin) / ($CSmax - $CSmin));
-				if ($newH < 0){
-					$newH = $newH + 360;
-				}
-				$rgb = $this->hsltohex($newH, $newS, $newL);	
+			$rgb = $CScolour[0];
 		}
 		return $rgb;
 	}
@@ -772,6 +783,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	 */
 	private function border($Bstyle, $rgb, $theme, $tint, $indexed, $side)
 	{
+		$bcol = '';
 		if ($rgb){
 			$bcol = $rgb;
 		} else if ($theme){
@@ -784,7 +796,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		} else if ($indexed){
 			$bcol = $indexed;
 		}
-		if ($bcol ==''){
+		if ($bcol == ''){
 			$bcol = '000000';
 		}
 		if ($Bstyle == 'thin'){
@@ -826,7 +838,8 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$reader->XML($this->styles_xml->saveXML());
 
 		}
-		$type = $fon = $bor = $fil = $Bcol = $script = '';
+		$type = $fon = $bor = $fil = $Bcol = $script = $pos = $Foncol = '';
+		$Cstyle = array();
 		while ($reader->read()) {
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == $Ctype2) {
 				$type = 'Y';
@@ -921,10 +934,10 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 			}
 			if (($reader->nodeType == XMLREADER::END_ELEMENT && $reader->name == 'font') AND ($type == 'Y')) {
-				if (!$Cstyle[$Ccount]['fbold']){
+				if (!isset($Cstyle[$Ccount]['fbold'])){
 					$Cstyle[$Ccount]['fbold'] = '';
 				}
-				if (!$Cstyle[$Ccount]['fital']){
+				if (!isset($Cstyle[$Ccount]['fital'])){
 					$Cstyle[$Ccount]['fital'] = '';
 				}
 				$fon = '';
@@ -952,7 +965,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			if (($reader->name == 'color') AND ($pos == 'L')){
 				$rgb = $Ctheme = $indexed = '';
 				$Ctint = 0;
-				$rgb = substr($reader->getAttribute("rgb"),2); // RGB colour of left border
+				if ($reader->getAttribute("rgb")){
+					$rgb = substr($reader->getAttribute("rgb"),2); // RGB colour of left border
+				}
 				if ($reader->getAttribute("theme")){
 					$Ctheme = $reader->getAttribute("theme"); // Theme colour of left border
 					if ($reader->getAttribute("tint")){
@@ -979,7 +994,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			if (($reader->name == 'color') AND ($pos == 'R')){
 				$rgb = $Ctheme = $indexed = '';
 				$Ctint = 0;
-				$rgb = substr($reader->getAttribute("rgb"),2); //RGB colour of right border
+				if ($reader->getAttribute("rgb")){
+					$rgb = substr($reader->getAttribute("rgb"),2); //RGB colour of right border
+				}
 				if ($reader->getAttribute("theme")){
 					$Ctheme = (int)$reader->getAttribute("theme"); // Theme colour of right border
 					if ($reader->getAttribute("tint")){
@@ -1006,7 +1023,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			if (($reader->name == 'color') AND ($pos == 'T')){
 				$rgb = $Ctheme = $indexed = '';
 				$Ctint = 0;
-				$rgb = substr($reader->getAttribute("rgb"),2); //RGB colour of top border
+				if ($reader->getAttribute("rgb")){
+					$rgb = substr($reader->getAttribute("rgb"),2); //RGB colour of top border
+				}
 				if ($reader->getAttribute("theme")){
 					$Ctheme = (int)$reader->getAttribute("theme"); // Theme colour of top border
 					if ($reader->getAttribute("tint")){
@@ -1033,7 +1052,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			if (($reader->name == 'color') AND $pos == 'B'){
 				$rgb = $Ctheme = $indexed = '';
 				$Ctint = 0;
-				$rgb = substr($reader->getAttribute("rgb"),2);  //RGN colour of bottom border
+				if ($reader->getAttribute("rgb")){
+					$rgb = substr($reader->getAttribute("rgb"),2);  //RGN colour of bottom border
+				}
 				if ($reader->getAttribute("theme")){
 					$Ctheme = (int)$reader->getAttribute("theme"); // Theme colour of bottom border
 					if ($reader->getAttribute("tint")){
@@ -1058,7 +1079,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 			}
 			if (($reader->name == 'color') AND $pos == 'D'){  //Colour of diagonal line
-				$coldia = substr($reader->getAttribute("rgb"),2);
+				if ($reader->getAttribute("rgb")){
+					$coldia = substr($reader->getAttribute("rgb"),2);
+				}
 				if ($reader->getAttribute("theme")){
 					$Dtheme = (int)$reader->getAttribute("theme");
 					if ($reader->getAttribute("tint")){
@@ -1076,7 +1099,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				if ($reader->getAttribute("indexed")){
 					$coldia = $this->Cindex[$reader->getAttribute("indexed")]; //Indexed font colour
 				}
-				if ($coldia == ''){
+				if (!isset($coldia)){
 					$coldia = '000000';
 				}
 				$Cstyle[$Ccount]['cdiag'] = $coldia;
@@ -1097,7 +1120,10 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$Bcol = 'fgColor';
 			}
 			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == $Bcol) AND ($fil == 'Y')){
-				$Frgb = substr($reader->getAttribute("rgb"),2);
+				$Frgb = '';
+				if ($reader->getAttribute("rgb")){
+					$Frgb = substr($reader->getAttribute("rgb"),2);
+				}
 				if ($Frgb == ''){
 					$Ctheme = (int)$reader->getAttribute("theme");
 					if ($reader->getAttribute("tint")){
@@ -1151,11 +1177,13 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	/**
 	 * Looks up the styles in the styles XML file and sets the parameters for all the styles/formats
 	 * 
-	 * @param - array $Ffirst - The ref for the first cell in a merge.
-	 * @param - array $Flast - The ref for the last cell in a merge.
+	 * @param - array $Ffirst - The style ref for the first cell in a merge.
+	 * @param - array $Flast - The style ref for the last cell in a merge.
+	 * @param - array $defbright - The default right border (grid) styling.
+	 * @param - array $defbbott - The default bottom border (grid) styling.
 	 * @return - array - The cell formatting
 	 */
-	private function findstyles($Ffirst, $Flast)
+	private function findstyles($Ffirst, $Flast, $defbright, $defbbott)
 	{
 		$zip = new ZipArchive();
 		$_xml_styles = 'xl/styles.xml';
@@ -1184,7 +1212,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		$formno = -1;
 		$fillno = 0;
 		$found = '';
-		$Nxref = array('1' => '0', '2' => '0.00', '3' => '#,##0', '4' => '#,##0.00', '5' => '"£"#,##0;\-"£"#,##0', '6' => '"£"#,##0;[Red]\-"£"#,##0', '7' => '"£"#,##0.00;\-"£"#,##0.00', '8' => '"£"#,##0.00;[Red]\-"£"#,##0.00', '9' => '0%', '10' => '0.00%', '11' => '0.00E+00', '12' => '#\ ?/?', '13' => '#\ ??/??', '14' => 'dd/mm/yyyy;@', '15' => 'dd-M-yy;@', '16' => 'dd-M;@', '17' => 'M-yy;@', '18' => 'h:mm\ AM/PM;@', '19' => 'h:mm:ss\ AM/PM;@', '20' => 'hh:mm;@', '21' => 'hh:mm:ss;@', '22' => 'dd/mm/yyyy\ hh:mm;@', '37' => '#,##0;\-#,##0', '38' => '#,##0;[Red]\-#,##0', '39' => '#,##0.00;\-#,##0.00', '40' => '#,##0.00;[Red]\-#,##0.00', '42' => '_-"£"* #,##0_-;\-"£"* #,##0_-;_-"£"* "-"_-;_-@_-', '44' => '_-"£"* #,##0.00_-;\-"£"* #,##0.00_-;_-"£"* "-"??_-;_-@_-', '45' => 'mm:ss;@', '46' => 'ZZZ', '47' => 'mm:ss.0;@');
+		$Nxref = array('1' => '0', '2' => '0.00', '3' => '#,##0', '4' => '#,##0.00', '5' => '"£"#,##0;\-"£"#,##0', '6' => '"£"#,##0;[Red]\-"£"#,##0', '7' => '"£"#,##0.00;\-"£"#,##0.00', '8' => '"£"#,##0.00;[Red]\-"£"#,##0.00', '9' => '0%', '10' => '0.00%', '11' => '0.00E+00', '12' => '#\ ?/?', '13' => '#\ ??/??', '14' => 'dd/mm/yyyy;@', '15' => 'dd-M-yy;@', '16' => 'dd-M;@', '17' => 'M-yy;@', '18' => 'h:mm\ AM/PM;@', '19' => 'h:mm:ss\ AM/PM;@', '20' => 'hh:mm;@', '21' => 'hh:mm:ss;@', '22' => 'dd/mm/yyyy\ hh:mm;@', '37' => '#,##0;\-#,##0', '38' => '#,##0;[Red]\-#,##0', '39' => '#,##0.00;\-#,##0.00', '40' => '#,##0.00;[Red]\-#,##0.00', '41' => '_-* #,##0_-;\-* #,##0_-;_-* "-"_-;_-@_-', '42' => '_-"£"* #,##0_-;\-"£"* #,##0_-;_-"£"* "-"_-;_-@_-', '43' => '_-* #,##0.00_-;\-* #,##0.00_-;_-* "-"??_-;_-@_-', '44' => '_-"£"* #,##0.00_-;\-"£"* #,##0.00_-;_-"£"* "-"??_-;_-@_-', '45' => 'mm:ss;@', '46' => 'ZZZ', '47' => 'mm:ss.0;@', '49' => 'TEXT');
 		while ($reader->read()) {
 			// --------------------------------------------------------------------
 			//Start of Format Cross References
@@ -1266,10 +1294,22 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		
 		$cc = 0;
 		while ($cc < $formnum){
-			$Cellstyle[$cc]['fill'] = $Fill[$formfillId[$cc]]['fill']; //fill colour
-			$Cellstyle[$cc]['bleft'] = $Bord[$formborId[$cc]]['bleft']; //left borders
-			$Cellstyle[$cc]['btop'] = $Bord[$formborId[$cc]]['btop'];  //top borders
-			
+			if (isset($Fill[$formfillId[$cc]]['fill'])){
+				$Cellstyle[$cc]['fill'] = $Fill[$formfillId[$cc]]['fill']; //fill colour
+			} else {
+				$Cellstyle[$cc]['fill'] = '';
+			}
+			if (isset($Bord[$formborId[$cc]]['bleft'])){
+				$Cellstyle[$cc]['bleft'] = $Bord[$formborId[$cc]]['bleft']; //left borders
+			} else {
+				$Cellstyle[$cc]['bleft'] = '';
+			}
+			if (isset($Bord[$formborId[$cc]]['btop'])){
+				$Cellstyle[$cc]['btop'] = $Bord[$formborId[$cc]]['btop'];  //top borders
+			} else{
+				$Cellstyle[$cc]['btop'] = '';
+			}
+				
 			//creating the diagonal line in cells and getting the appropriate background colour
 			if (!isset($Fill[$formfillId[$cc]]['fillno'])){
 				$Fill[$formfillId[$cc]]['fillno'] = 'ffffff';
@@ -1283,7 +1323,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			if ($Bord[$formborId[$cc]]['diagD'] == 1 AND $Bord[$formborId[$cc]]['diagU'] == 1){
 				$Cellstyle[$cc]['bdiag'] = ' background: linear-gradient(to right top, #'.$Fill[$formfillId[$cc]]['fillno'].' 0%,#'.$Fill[$formfillId[$cc]]['fillno'].' 48%,#'.$Bord[$formborId[$cc]]['cdiag'].' 50%,#'.$Bord[$formborId[$cc]]['cdiag'].' 51%,#'.$Fill[$formfillId[$cc]]['fillno'].' 52%,#'.$Fill[$formfillId[$cc]]['fillno'].' 100%);';
 			}
-			
+			if (!isset($Cellstyle[$cc]['bdiag'])){
+				$Cellstyle[$cc]['bdiag'] = '';
+			}
 			
 			//for merged cells find the right and bottom borders from the details of the last cell of the range
 			$aa = sizeof($Ffirst);
@@ -1291,13 +1333,17 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			while ($bb < $aa){ 
 				if ($Ffirst[$bb] == $cc){ 
 					$found = 'Y';
-					$Cellstyle[$cc]['bright'] = $Bord[$formborId[$Flast[$bb]]]['bright']; //right borders
-					if ($Ccol[$cc] == '' AND !isset($Bord[$formborId[$Flast[$bb]]]['bright'])){
-						$Cellstyle[$cc]['bright'] = ' border-right:1px solid LightGray;';
+					if (isset($Bord[$formborId[$Flast[$bb]]]['bright'])){
+						$Cellstyle[$cc]['bright'] = $Bord[$formborId[$Flast[$bb]]]['bright']; //right borders
 					}
-					$Cellstyle[$cc]['bbott'] = $Bord[$formborId[$Flast[$bb]]]['bbott']; //bottom borders
-					if ($Ccol[$cc] == '' AND !isset($Bord[$formborId[$Flast[$bb]]]['bbott'])){
-						$Cellstyle[$cc]['bbott'] = ' border-bottom:1px solid LightGray;';
+					if (!isset($Ccol[$cc]) AND !isset($Bord[$formborId[$Flast[$bb]]]['bright'])){
+						$Cellstyle[$cc]['bright'] = $defbright;
+					}
+					if (isset($Bord[$formborId[$Flast[$bb]]]['bbott'])){
+						$Cellstyle[$cc]['bbott'] = $Bord[$formborId[$Flast[$bb]]]['bbott']; //bottom borders
+					}
+					if (!isset($Ccol[$cc]) AND !isset($Bord[$formborId[$Flast[$bb]]]['bbott'])){
+						$Cellstyle[$cc]['bbott'] = $defbbott;
 					}
 					$bb = $aa;
 				}
@@ -1306,74 +1352,162 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			
 			//Default right and bottom borders
 			if  ($found == ''){
-				$Cellstyle[$cc]['bright'] = $Bord[$formborId[$cc]]['bright']; //right borders
-				if ($Ccol[$cc] == '' AND !isset($Bord[$formborId[$cc]]['bright'])){
-					$Cellstyle[$cc]['bright'] = ' border-right:1px solid LightGray;';
+				if(isset($Bord[$formborId[$cc]]['bright'])){
+					$Cellstyle[$cc]['bright'] = $Bord[$formborId[$cc]]['bright']; //right borders
 				}
-				$Cellstyle[$cc]['bbott'] = $Bord[$formborId[$cc]]['bbott']; //bottom borders
-				if ($Ccol[$cc] == '' AND !isset($Bord[$formborId[$cc]]['bbott'])){
-					$Cellstyle[$cc]['bbott'] = ' border-bottom:1px solid LightGray;';
+				if (isset($Ccol[$cc]) AND !isset($Bord[$formborId[$cc]]['bright'])){
+					$Cellstyle[$cc]['bright'] = $defbright;
+				}
+				if(isset($Bord[$formborId[$cc]]['bbott'])){
+					$Cellstyle[$cc]['bbott'] = $Bord[$formborId[$cc]]['bbott']; //bottom borders
+				}
+				if (isset($Ccol[$cc]) AND !isset($Bord[$formborId[$cc]]['bbott'])){
+					$Cellstyle[$cc]['bbott'] = $defbbott;
 				}
 			}
 			
-			
 			// Text and Number alignment
 			$found = '';
-			if (!$formHalign[$cc]){
+			if (!isset($formHalign[$cc])){
 				$Cellstyle[$cc]['athor'] = " text-align:left;"; //default for text
 				$Cellstyle[$cc]['anhor'] = " text-align:right;"; //default for numbers
 			} else {
 				$Cellstyle[$cc]['athor'] = $formHalign[$cc];  //horizontal text alignment (text)
 				$Cellstyle[$cc]['anhor'] = $formHalign[$cc];  //horizontal text alignment (numbers)
 			}
-			if (!$formValign[$cc]){
+			if (!isset($formValign[$cc])){
 				$Cellstyle[$cc]['avert'] = " vertical-align:bottom;";
 			} else {
 				$Cellstyle[$cc]['avert'] = $formValign[$cc];  //vertical text alignment
 			}
 
-			if ($Font[$formfontId[$cc]]['sacc'] == 'Y'){ 
+			if (isset($Font[$formfontId[$cc]]['sacc'])){ 
 				$Cellstyle[$cc]['bbott'] = ' border-bottom:1px solid #000000;'; //put in Single Accounting line
 			}
-			if ($Font[$formfontId[$cc]]['dacc'] == 'Y'){
+			if (isset($Font[$formfontId[$cc]]['dacc'])){
 				$Cellstyle[$cc]['bbott'] = ' border-bottom:3px double #000000;'; //put in Double Accounting line
 			}
 			$Cellstyle[$cc]['fname'] = $Font[$formfontId[$cc]]['fname']; //font name
 			$Cellstyle[$cc]['fsize'] = $Font[$formfontId[$cc]]['fsize']; //font size
+			if (isset($Font[$formfontId[$cc]]['fcol'])){
 			$Cellstyle[$cc]['fcol'] = $Font[$formfontId[$cc]]['fcol']; //font colour
+			} else {
+				$Cellstyle[$cc]['fcol'] = '';
+			}
+			if (isset($Font[$formfontId[$cc]]['fbold'])){
 			$Cellstyle[$cc]['fbold'] = $Font[$formfontId[$cc]]['fbold']; //font bold
-			$Cellstyle[$cc]['fund'] = $Font[$formfontId[$cc]]['fund']; //font underline
-			$Cellstyle[$cc]['fital'] = $Font[$formfontId[$cc]]['fital']; //font italics
-			$Cellstyle[$cc]['fscript'] = $Font[$formfontId[$cc]]['fscript']; //font superscript/subscript
-			$Cellstyle[$cc]['fstrike'] = $Font[$formfontId[$cc]]['fstrike']; //font strikethrough
+			} else {
+				$Cellstyle[$cc]['fbold'] = '';
+			}
+			if (isset($Font[$formfontId[$cc]]['fund'])){
+				$Cellstyle[$cc]['fund'] = $Font[$formfontId[$cc]]['fund']; //font underline
+			} else {
+				$Cellstyle[$cc]['fund'] = '';
+			}
+			if (isset($Font[$formfontId[$cc]]['fital'])){
+				$Cellstyle[$cc]['fital'] = $Font[$formfontId[$cc]]['fital']; //font italics
+			} else {
+				$Cellstyle[$cc]['fital'] = '';
+			}
+			if (isset($Font[$formfontId[$cc]]['fscript'])){
+				$Cellstyle[$cc]['fscript'] = $Font[$formfontId[$cc]]['fscript']; //font superscript/subscript
+			} else {
+				$Cellstyle[$cc]['fscript'] = '';
+			}
+			if (isset($Font[$formfontId[$cc]]['fstrike'])){
+				$Cellstyle[$cc]['fstrike'] = $Font[$formfontId[$cc]]['fstrike']; //font strikethrough
+			} else {
+				$Cellstyle[$cc]['fstrike'] = '';
+			}
 			
 			$Cellstyle[$cc]['hyper'] = $Cname[$formxfId[$cc]]; // cell style - used to indicate cells with a hyperlink
-			if (!$Nformat[$formnumfmt[$cc]]){
+			if (!isset($Nformat[$formnumfmt[$cc]]) AND $formnumfmt[$cc] <> '0'){
 				$Nformat[$formnumfmt[$cc]] = $Nxref[$formnumfmt[$cc]]; //some common number formats are not always defined in the 'styles' file
+//			} else {
+//				$Nformat[$formnumfmt[$cc]] = '';
 			}
-			$Cellstyle[$cc]['nform'] = $Nformat[$formnumfmt[$cc]]; // number format style
+			if (isset($Nformat[$formnumfmt[$cc]])){
+				$Cellstyle[$cc]['nform'] = $Nformat[$formnumfmt[$cc]]; // number format style
+			} else {
+				$Cellstyle[$cc]['nform'] = '';
+			}
 			++$cc;
 		}
 		
 		// Get all the conditional formatting styles.
+		$CF1 = array();
 		$CF1 = $this->getstyles('styles', 0, 'dxf');
 		$dx = 0;
-		$Cnum = $CF1[0]['num'];
-		while ($dx < $Cnum){
-			$Cellstyle[$dx]['Cfill'] = $CF1[$dx]['fill']; // conditional fill colour
-			$Cellstyle[$dx]['Cbleft'] = $CF1[$dx]['bleft']; // conditional left borders
-			$Cellstyle[$dx]['Cbtop'] = $CF1[$dx]['btop'];  // conditional top borders
-			$Cellstyle[$dx]['Cbright'] = $CF1[$dx]['bright'];  // conditional right borders
-			$Cellstyle[$dx]['Cbbott'] = $CF1[$dx]['bbott'];  // conditional bottom borders
-			$Cellstyle[$dx]['Cfname'] = $CF1[$dx]['fname']; // conditional font name
-			$Cellstyle[$dx]['Cfsize'] = $CF1[$dx]['fsize']; // conditional font size
-			$Cellstyle[$dx]['Cfcol'] = $CF1[$dx]['fcol']; // conditional font colour
-			$Cellstyle[$dx]['Cfbold'] = $CF1[$dx]['fbold']; // conditional font bold
-			$Cellstyle[$dx]['Cfund'] = $CF1[$dx]['fund']; // conditional font underline
-			$Cellstyle[$dx]['Cfital'] = $CF1[$dx]['fital']; // conditional font italics
-			$Cellstyle[$dx]['Cfscript'] = $CF1[$dx]['fscript']; // conditional font superscript/subscript
-			$Cellstyle[$dx]['Cfstrike'] = $CF1[$dx]['fstrike']; // conditional font strikethrough
-			++$dx;
+		if (isset($CF1[0]['num'])){
+			$Cnum = $CF1[0]['num'];
+			while ($dx < $Cnum){
+				if (isset($CF1[$dx]['fill'])){
+					$Cellstyle[$dx]['Cfill'] = $CF1[$dx]['fill']; // conditional fill colour
+				} else {
+					$Cellstyle[$dx]['Cfill'] = '';
+				}
+				if (isset($CF1[$dx]['bleft'])){
+					$Cellstyle[$dx]['Cbleft'] = $CF1[$dx]['bleft']; // conditional left borders
+				} else {
+					$Cellstyle[$dx]['Cbleft'] = '';
+				}
+				if (isset($CF1[$dx]['btop'])){
+					$Cellstyle[$dx]['Cbtop'] = $CF1[$dx]['btop'];  // conditional top borders
+				} else {
+					$Cellstyle[$dx]['Cbtop'] = '';
+				}
+				if (isset($CF1[$dx]['bright'])){
+					$Cellstyle[$dx]['Cbright'] = $CF1[$dx]['bright'];  // conditional right borders
+				} else {
+					$Cellstyle[$dx]['Cbright'] = '';
+				}
+				if (isset($CF1[$dx]['bbott'])){
+					$Cellstyle[$dx]['Cbbott'] = $CF1[$dx]['bbott'];  // conditional bottom borders
+				} else {
+					$Cellstyle[$dx]['Cbbott'] = '';
+				}
+				if (isset($CF1[$dx]['fname'])){
+					$Cellstyle[$dx]['Cfname'] = $CF1[$dx]['fname']; // conditional font name
+				} else {
+					$Cellstyle[$dx]['Cfname'] = '';
+				}
+				if (isset($CF1[$dx]['fsize'])){
+					$Cellstyle[$dx]['Cfsize'] = $CF1[$dx]['fsize']; // conditional font size
+				} else {
+					$Cellstyle[$dx]['Cfsize'] = '';
+				}
+				if (isset($CF1[$dx]['fcol'])){
+					$Cellstyle[$dx]['Cfcol'] = $CF1[$dx]['fcol']; // conditional font colour
+				} else {
+					$Cellstyle[$dx]['Cfcol'] = '';
+				}
+				if (isset($CF1[$dx]['fbold'])){
+					$Cellstyle[$dx]['Cfbold'] = $CF1[$dx]['fbold']; // conditional font bold
+				} else {
+					$Cellstyle[$dx]['Cfbold'] = '';
+				}
+				if (isset($CF1[$dx]['fund'])){
+					$Cellstyle[$dx]['Cfund'] = $CF1[$dx]['fund']; // conditional font underline
+				} else {
+					$Cellstyle[$dx]['Cfund'] = '';
+				}
+				if (isset($CF1[$dx]['fital'])){
+					$Cellstyle[$dx]['Cfital'] = $CF1[$dx]['fital']; // conditional font italics
+				} else {
+					$Cellstyle[$dx]['Cfital'] = '';
+				}
+				if (isset($CF1[$dx]['fscript'])){
+					$Cellstyle[$dx]['Cfscript'] = $CF1[$dx]['fscript']; // conditional font superscript/subscript
+				} else {
+					$Cellstyle[$dx]['Cfscript'] = '';
+				}
+				if (isset($CF1[$dx]['fstrike'])){
+					$Cellstyle[$dx]['Cfstrike'] = $CF1[$dx]['fstrike']; // conditional font strikethrough
+				} else {
+					$Cellstyle[$dx]['Cfstrike'] = '';
+				}
+				++$dx;
+			}
 		}
 		$Cellstyle[0]['dxf'] = $dx;
 		return $Cellstyle;
@@ -1429,6 +1563,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			$Spos = $S1 + 1;
 			$Len = $S1a - $Spos;
 			$details['unit'] = substr($Ncode,$Spos,$Len);
+			$details['pos'] = 'L';
 		} else if (strpos($Ncode,'$')){ //find location of currency unit preceded by a '$'
 			if (strpos($Ncode,'0[$')){ // find trailing currency
 				$details['pos'] = 'T';
@@ -1481,8 +1616,8 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 	{
 		$parts = explode('*',$Stext);
 		$Npart = sizeof($parts);
-		$FU = $FE = $FK = '';
-		$FF = $FB = $FI = '';
+		$FU = $FE = $FK = $tt = '';
+		$FF = $FB = $FI = $FS = $Htext = '';
 		$n = 0;
 		while ($n < $Npart){
 			$parts[$n] = nl2br($parts[$n]);
@@ -1577,7 +1712,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			} else { //if no font formatting
 				$text3 = $parts[$n];
 			}
-			if ($text1 <> ''){
+			if (isset($text1)){
 				if ($FS == ''){
 					$FS = $this->DevS; //default font size
 				}
@@ -1588,7 +1723,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$Htext .= "<span style='".$FF.$FB.$FI.$FU.$FE.$FK.$FS."'>".$text1."</span>";
 				$text1 = '';
 			}
-			if ($text4 <> ''){
+			if (isset($text4)){
 				if ($FS == ''){
 					$FS = $this->DevS; //default font size
 				}
@@ -1598,7 +1733,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$Htext .= "<span style='".$FF.$FB.$FI.$FU.$FE.$FK.$FS."'>".$text4."</span>";
 				$text4 = '';
 			}
-			if ($text2 <> ''){
+			if (isset($text2)){
 				if ($FS == ''){
 					$FS = $this->DevS; //default font size
 				}
@@ -1608,7 +1743,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$Htext .= "<span style='".$FF.$FB.$FI.$FU.$FE.$FK.$FS."'>".$text2."</span>";
 				$text2 = '';
 			}
-			if ($text3 <> ''){
+			if (isset($text3)){
 				if ($FS == ''){
 					$FS = $this->DevS; //default font size
 				}
@@ -1730,7 +1865,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 
 		$reader = new XMLReader;
 		$reader->XML($this->sheet_xml->saveXML());
-		$mergeno = $confor = 0;
+		$mergeno = $confor = $hyperno = 0;
 		$Mfound = '';
 		$cell = array();  //cell contents - a number or a reference to the string
 		$Sdata = array();
@@ -1738,16 +1873,21 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		$Ffirst = array();
 		$Flast = array();
 		$Cwidth = array();
-		$crange = array();
+		$crange = $Thead = $Tfoot = array();
 		$tst = $temp = -1;
-		$text = $Ccount = '';
+		$text = $Ccount = $tt = $nogrid = '';
 		$CF = $Xcount = $Tpriority = $dB = $lc = 0;
-		
+		$drawing = '';
 		$cs = '';
 		$fr = $ctype = '';
 		while ($reader->read()) {
 			if ($reader->name == 'dimension') {
 				$range = $reader->getAttribute("ref"); //defined cell range of spreadsheet
+			}
+			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'sheetView') {
+				if ($reader->getAttribute("showGridLines") === '0'){
+				$nogrid = 'Y';
+				}
 			}
 			if ($reader->name == 'col') {
 				$c1 = $reader->getAttribute("min"); //column number
@@ -1810,6 +1950,11 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$Cmerge[$mergeno] = $reader->getAttribute("ref"); //merged cell range
 				++$mergeno;
 			}
+			if ($reader->name == 'hyperlink') {
+				$Chyper[$hyperno] = $reader->getAttribute("ref"); //cell number with a hyperlink
+				++$hyperno;
+			}
+
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'oddHeader') {
 				$Thead = " ".htmlentities($reader->expand()->textContent);
 			}
@@ -1857,8 +2002,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$csa = $csb = 0;
 				$cs = 'Y';
 			}
-			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'formula') AND  $Ccount == '' AND $CF == 0) {
+			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'formula') AND  $Ccount == '' AND $CF == 0 AND $dfstype[$confor] <> 'expression') {
 				$form1 = htmlentities($reader->expand()->textContent);
+//				if (substr($form1,0,1) == '$' AND strpos($form1,':')){
 				if (substr($form1,0,1) == '$'){
 					$form1 = str_replace('$','', $form1);
 					if ($Ddata[$form1] == ''){
@@ -1871,8 +2017,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 				$CF = '1';
 			}
-			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'formula') AND  $Ccount == '' AND $CF == 1) {
+			if (($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'formula') AND  $Ccount == '' AND $CF == 1 AND $dfstype[$confor] <> 'expression') {
 				$form2 = htmlentities($reader->expand()->textContent);
+//				if (substr($form2,0,1) == '$' AND strpos($form2,':')){
 				if (substr($form2,0,1) == '$'){
 					$form2 = str_replace('$','', $form2);
 					if ($Ddata[$form2] == ''){
@@ -1922,11 +2069,13 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			}
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'xm:f') {
 				$Xtemp = htmlentities($reader->expand()->textContent); // get value link to conditional formatting
-				$Xtemp = str_replace('$','', $Xtemp);
-				if ($Ddata[$Xtemp] == ''){
-					$Xvalue = $Cform1[$confor] = $cell[$inv[$Xtemp]];
-				} else {
-					$Xvalue = $dfstext[$confor] = $this->shared[$cell[$inv[$Xtemp]]];
+				if (substr($Xtemp,0,1) == '$'){
+					$Xtemp = str_replace('$','', $Xtemp);
+					if ($Ddata[$Xtemp] == ''){
+						$Xvalue = $Cform1[$confor] = $cell[$inv[$Xtemp]];
+					} else {
+						$Xvalue = $dfstext[$confor] = $this->shared[$cell[$inv[$Xtemp]]];
+					}
 				}
 			}
 			if ($reader->nodeType == XMLREADER::ELEMENT && $reader->name == 'x14:dataBar') {
@@ -2026,12 +2175,21 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 				++$confor;
 			}
-
+			if ($reader->name == 'drawing'){
+				$drawing = 'Y';
+			}
+		}
+		if ($nogrid == 'Y' OR $this->GR == 'N'){ //sets the default grid borders
+			$defbright = '';
+			$defbbott = '';
+		} else {
+			$defbright = ' border-right:1px solid LightGray;';
+			$defbbott = ' border-bottom:1px solid LightGray;';
 		}
 		if ($tst > 0 ){ //Check to see that the sheet is not blank
-			$text = "<table style='".$defstyle." border-collapse: separate; border-spacing: 0px; margin-left: auto; margin-right: auto;'>"; // start the table if there is data in the spreadsheet
+			$text = "<table style='border-collapse: separate; border-spacing: 0px; margin-left: auto; margin-right: auto;'>"; // start the table if there is data in the spreadsheet
 			//Get first and last cell in the spreadsheet and their cell/row numbers
-			$this->charstonum($cellname);
+//			$this->charstonum($cellname);
 			$sheetsize = explode(':', $range);
 			$ab = $this->charstonum($sheetsize[0]);
 			$Cfirst = $ab['char'];
@@ -2048,7 +2206,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			if ($Rlast > $lr){ //check to see that there aren't some blank rows beyond the last occupied cell that are in the range noted in the worksheet
 				$Rlast = $lr + 1;
 			}
-
+			
 			//Details of merged cells needed for findstyles to determine the right and bottom borders of merged cells
 			$b = 0;
 			while($b < $mergeno){
@@ -2065,61 +2223,123 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			
 			//get the position of images from the drawing xml sheet and add it to the merge array
 			$mmc = $b;
-			$array = $this->drawings($Nsheet);
-			$Fimage = $array[0];
-			$Limage = $array[1];
-			$Iname = $array[2];
-			$Imxs = $array[3];
-			$Imys  = $array[4];
-			$pictno = $array[5];
-			$ii = 0;
-			if ($pictno > 0){
-				$mergeno = $b + $pictno;
-				while ($b < $mergeno){
-					$Mfirst[$b] = $Fimage[$ii];
-					$Ffirst[$b] = $Sdata[$Mfirst[$b]];
-					$ab = $this->charstonum($Mfirst[$b]); //check to see if the top left of the image is outwith the spreadsheet range
-					if($ab['char'] < $Cfirst){
-						$Cfirst = $ab['char'];
+			if ($drawing == 'Y'){
+				$array = $this->drawings($Nsheet);
+				$Fimage = $array[0];
+				$Limage = $array[1];
+				$Iname = $array[2];
+				$Imxs = $array[3];
+				$Imys  = $array[4];
+				$pictno = $array[5];
+				$ii = 0;
+				if ($pictno > 0){
+					$mergeno = $b + $pictno;
+					while ($b < $mergeno){
+						$Mfirst[$b] = $Fimage[$ii];
+						if (isset($Sdata[$Mfirst[$b]])){
+							$Ffirst[$b] = $Sdata[$Mfirst[$b]];
+						} else {
+							$Ffirst[$b] = '';
+						}
+						$ab = $this->charstonum($Mfirst[$b]); //check to see if the top left of the image is outwith the spreadsheet range
+						if($ab['char'] < $Cfirst){
+							$Cfirst = $ab['char'];
+						}
+						if($ab['num'] < $Rfirst){
+							$Rfirst = $ab['num'];
+						}
+						$Mlast[$b] = $Limage[$ii];
+						if (isset($Sdata[$Mlast[$b]])){
+							$Flast[$b] = $Sdata[$Mlast[$b]];
+						} else {
+							$Flast[$b] = '';
+						}
+						$ab = $this->charstonum($Mlast[$b]); //check to see if the bottom right of the image is outwith the spreadsheet range
+						if($ab['char'] > $Clast){
+							$Clast = $ab['char'];
+						}
+						if($ab['num'] > $Rlast){
+							$Rlast = $ab['num'];
+						}
+						$Ixr[$b] = 'Y';
+						++$b;
+						++$ii;
 					}
-					if($ab['num'] < $Rfirst){
-						$Rfirst = $ab['num'];
-					}
-					$Mlast[$b] = $Limage[$ii];
-					$Flast[$b] = $Sdata[$Mlast[$b]];
-					$ab = $this->charstonum($Mlast[$b]); //check to see if the bottom right of the image is outwith the spreadsheet range
-					if($ab['char'] > $Clast){
-						$Clast = $ab['char'];
-					}
-					if($ab['num'] > $Rlast){
-						$Rlast = $ab['num'];
-					}
-					$Ixr[$b] = 'Y';
-					++$b;
-					++$ii;
 				}
 			}
 			
-			$Cellstyle = $this->findstyles($Ffirst,$Flast); // Sends the first and last cell of merges/images and gets the style parameters from the styles XML file
+			$Cellstyle = $this->findstyles($Ffirst,$Flast,$defbright,$defbbott); // Sends the first and last cell of merges/images and default grid borders and gets the style parameters from the styles XML file
 			if ($Xcount > 0){
 				$Ccount = $Cellstyle[0]['dxf'];
 				// Get the additional 'text' conditional formatting
 				$CF2 = $this->getstyles('sheet', $Ccount, 'x14:conditionalFormatting');
 				$d = 0;
 				while ($d < $Xcount){
-					$Cellstyle[$Ccount]['Cfscript'] = $CF2[$Ccount]['fscript'];
-					$Cellstyle[$Ccount]['Cfstrike'] = $CF2[$Ccount]['fstrike'];
-					$Cellstyle[$Ccount]['Cfbold'] = $CF2[$Ccount]['fbold'];
-					$Cellstyle[$Ccount]['Cfund'] = $CF2[$Ccount]['fund'];
-					$Cellstyle[$Ccount]['Cfital'] = $CF2[$Ccount]['fital'];
-					$Cellstyle[$Ccount]['Cfsize'] = $CF2[$Ccount]['fsize'];
-					$Cellstyle[$Ccount]['Cfcol'] = $CF2[$Ccount]['fcol'];
-					$Cellstyle[$Ccount]['Cfname'] = $CF2[$Ccount]['fname'];
-					$Cellstyle[$Ccount]['Cbleft'] = $CF2[$Ccount]['bleft'];
-					$Cellstyle[$Ccount]['Cbright'] = $CF2[$Ccount]['bright'];
-					$Cellstyle[$Ccount]['Cbtop'] = $CF2[$Ccount]['btop'];
-					$Cellstyle[$Ccount]['Cbbott'] = $CF2[$Ccount]['bbott'];
-					$Cellstyle[$Ccount]['Cfill'] = $CF2[$Ccount]['fill'];
+					if (isset($CF2[$Ccount]['fscript'])){
+						$Cellstyle[$Ccount]['Cfscript'] = $CF2[$Ccount]['fscript'];
+					} else {
+						$Cellstyle[$Ccount]['Cfscript'] = '';
+					}
+					if (isset($CF2[$Ccount]['fstrike'])){
+						$Cellstyle[$Ccount]['Cfstrike'] = $CF2[$Ccount]['fstrike'];
+					} else {
+						$Cellstyle[$Ccount]['Cfstrike'] = '';
+					}
+					if (isset($CF2[$Ccount]['fbold'])){
+						$Cellstyle[$Ccount]['Cfbold'] = $CF2[$Ccount]['fbold'];
+					} else {
+						$Cellstyle[$Ccount]['Cfbold'] = '';
+					}
+					if (isset($CF2[$Ccount]['fund'])){
+						$Cellstyle[$Ccount]['Cfund'] = $CF2[$Ccount]['fund'];
+					} else {
+						$Cellstyle[$Ccount]['Cfund'] = '';
+					}
+					if (isset($CF2[$Ccount]['fital'])){
+						$Cellstyle[$Ccount]['Cfital'] = $CF2[$Ccount]['fital'];
+					} else {
+						$Cellstyle[$Ccount]['Cfital'] = '';
+					}
+					if (isset($CF2[$Ccount]['fsize'])){
+						$Cellstyle[$Ccount]['Cfsize'] = $CF2[$Ccount]['fsize'];
+					} else {
+						$Cellstyle[$Ccount]['Cfsize'] = '';
+					}
+					if (isset($CF2[$Ccount]['fcol'])){
+						$Cellstyle[$Ccount]['Cfcol'] = $CF2[$Ccount]['fcol'];
+					} else {
+						$Cellstyle[$Ccount]['Cfcol'] = '';
+					}
+					if (isset($CF2[$Ccount]['fname'])){
+						$Cellstyle[$Ccount]['Cfname'] = $CF2[$Ccount]['fname'];
+					} else {
+						$Cellstyle[$Ccount]['Cfname'] = '';
+					}
+					if (isset($CF2[$Ccount]['bleft'])){
+						$Cellstyle[$Ccount]['Cbleft'] = $CF2[$Ccount]['bleft'];
+					} else {
+						$Cellstyle[$Ccount]['Cbleft'] = '';
+					}
+					if (isset($CF2[$Ccount]['bright'])){
+						$Cellstyle[$Ccount]['Cbright'] = $CF2[$Ccount]['bright'];
+					} else {
+						$Cellstyle[$Ccount]['Cbright'] = '';
+					}
+					if (isset($CF2[$Ccount]['btop'])){
+						$Cellstyle[$Ccount]['Cbtop'] = $CF2[$Ccount]['btop'];
+					} else {
+						$Cellstyle[$Ccount]['Cbtop'] = '';
+					}
+					if (isset($CF2[$Ccount]['bbott'])){
+						$Cellstyle[$Ccount]['Cbbott'] = $CF2[$Ccount]['bbott'];
+					} else {
+						$Cellstyle[$Ccount]['Cbbott'] = '';
+					}
+					if (isset($CF2[$Ccount]['fill'])){
+						$Cellstyle[$Ccount]['Cfill'] = $CF2[$Ccount]['fill'];
+					} else {
+						$Cellstyle[$Ccount]['Cfill'] = '';
+					}
 					
 					$dfsref[$end1] = $Ccount;
 					++$end1;
@@ -2130,9 +2350,13 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 
 			if ($Thead){
 				$Sinfo['head'] = $this->HeadFoot($Thead);				
+			} else {
+				$Sinfo['head'] = '';
 			}
 			if ($Tfoot){
 				$Sinfo['foot'] = $this->HeadFoot($Tfoot);
+			} else {
+				$Sinfo['foot'] = '';
 			}
 			
 			
@@ -2146,9 +2370,16 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					$ab = $this->charstonum($consize[0]);
 					$CCfirst = $ab['char'];
 					$CRfirst = $ab['num'];
-					$yz = $this->charstonum($consize[1]);
-					$CClast = $yz['char'];
-					$CRlast = $yz['num'];
+					if (isset($consize[1])){
+						$yz = $this->charstonum($consize[1]);
+						$CClast = $yz['char'];
+						$CRlast = $yz['num'];
+					} else {
+						$CClast = $CCfirst;
+						$CRlast = $CRfirst;
+						$rr = 0;
+					}
+
 					// start of finding any duplicated cell values in areas of duplicate conditional formatting
 					if ($dfstype[$cond] == 'duplicateValues' OR $dfstype[$cond] == 'uniqueValues'){
 						$a = 0;
@@ -2200,7 +2431,9 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 							}
 							++$CCfirst;
 						}
-						sort($Atemp[$cond]);
+						if (isset($Atemp[$cond])){
+							sort($Atemp[$cond]);
+						}
 						// find value for aboveAverage cond formatting
 						if ($dfstype[$cond] == 'aboveAverage'){
 							if ($dfSdev[$cond]){
@@ -2257,50 +2490,53 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 							} else {
 								$CSmin1[$cond] = $CSmin[$cond];
 							}
-							if ($cfvo[$cond][2]){
-								$tmp = 2;
-								//determine middle colour value for a 3 colour colorScale
-								if ($cfvo[$cond][1] == 'percentile'){
-									$pindex = $cfvoval[$cond][1] / 100 * ($tt + 1);
+							$CSave[$cond] = 0;
+//							if ($rr == 1){
+								if (isset($cfvo[$cond][2])){
+									$tmp = 2;
+									//determine middle colour value for a 3 colour colorScale
+									if ($cfvo[$cond][1] == 'percentile'){
+										$pindex = $cfvoval[$cond][1] / 100 * ($tt + 1);
+										$a1 = floor($pindex)-1;
+										$a2 = ceil($pindex)-1;
+										$a3 = $pindex -1 - $a1;
+										if ($pindex == ($a1 + 1)){
+											$CSave[$cond] = $Atemp[$cond][$a1];
+										} else {
+											$CSave[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+										}
+									} else if ($cfvo[$cond][1] == 'percent'){
+										$CSave[$cond] = ($cfvoval[$cond][1]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
+									} else if ($cfvo[$cond][1] == 'num'){
+										$CSave[$cond] = $cfvoval[$cond][1];
+									}
+								} else {
+									$tmp = 1;
+								}
+								// determine displayed max value
+								if ($cfvo[$cond][$tmp] == 'percentile'){
+									$pindex = $cfvoval[$cond][$tmp] / 100 * ($tt + 1);
 									$a1 = floor($pindex)-1;
 									$a2 = ceil($pindex)-1;
 									$a3 = $pindex -1 - $a1;
 									if ($pindex == ($a1 + 1)){
-										$CSave[$cond] = $Atemp[$cond][$a1];
+										$CSmax1[$cond] = $Atemp[$cond][$a1];
 									} else {
-										$CSave[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+										$CSmax1[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
 									}
-								} else if ($cfvo[$cond][1] == 'percent'){
-									$CSave[$cond] = ($cfvoval[$cond][1]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
-								} else if ($cfvo[$cond][1] == 'num'){
-									$CSave[$cond] = $cfvoval[$cond][1];
-								}
-							} else {
-								$tmp = 1;
-							}
-							// determine displayed max value
-							if ($cfvo[$cond][$tmp] == 'percentile'){
-								$pindex = $cfvoval[$cond][$tmp] / 100 * ($tt + 1);
-								$a1 = floor($pindex)-1;
-								$a2 = ceil($pindex)-1;
-								$a3 = $pindex -1 - $a1;
-								if ($pindex == ($a1 + 1)){
-									$CSmax1[$cond] = $Atemp[$cond][$a1];
+								} else if ($cfvo[$cond][$tmp] == 'percent'){
+									$CSmax1[$cond] = ($cfvoval[$cond][$tmp]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
+								} else if ($cfvo[$cond][$tmp] == 'num'){
+									$CSmax1[$cond] = $cfvoval[$cond][$tmp];
 								} else {
-									$CSmax1[$cond] = $Atemp[$cond][$a1] + ($a3 * ($Atemp[$cond][$a2] - $Atemp[$cond][$a1]));
+									$CSmax1[$cond] = $CSmax[$cond];
 								}
-							} else if ($cfvo[$cond][$tmp] == 'percent'){
-								$CSmax1[$cond] = ($cfvoval[$cond][$tmp]/100 * ($CSmax[$cond] - $CSmin[$cond])) + $CSmin[$cond];
-							} else if ($cfvo[$cond][$tmp] == 'num'){
-								$CSmax1[$cond] = $cfvoval[$cond][$tmp];
-							} else {
-								$CSmax1[$cond] = $CSmax[$cond];
-							}
+//							}
 							
 						}
 						//Find the min and max etc. values of the displayed dataBar
-						if ($dfstype[$cond] == 'dataBar' AND $CScolour[$cond][0] <> ''){
-							if ($cfvoval[$cond][0]){
+						if ($dfstype[$cond] == 'dataBar' AND isset($CScolour[$cond][0])){
+							if (isset($cfvoval[$cond][0])){
 								if ($cfvo[$cond][0] == 'percent'){
 									$Range = $CSmax[$cond] - $CSmin[$cond];
 									$dbmin[$cond] = (($cfvoval[$cond][0] / 100) * $Range) + $CSmin[$cond];
@@ -2324,7 +2560,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 									$dbmin[$cond] = 0;
 								}
 							}
-							if ($cfvoval[$cond][1]){
+							if (isset($cfvoval[$cond][1])){
 								if ($cfvo[$cond][1] == 'percent'){
 									$Range = $CSmax[$cond] - $CSmin[$cond];
 									$dbmax[$cond] = (($cfvoval[$cond][1] / 100) * $Range) + $CSmin[$cond];
@@ -2372,239 +2608,247 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$ab = $this->charstonum($consize[0]);
 				$CCfirst = $ab['char'];
 				$CRfirst = $ab['num'];
-				$yz = $this->charstonum($consize[1]);
-				$CClast = $yz['char'];
-				$CRlast = $yz['num'];
+				if (isset($consize[1])){
+					$yz = $this->charstonum($consize[1]);
+					$CClast = $yz['char'];
+					$CRlast = $yz['num'];
+				} else {
+					$CClast = $CCfirst;
+					$CRlast = $CRfirst;
+				}
+				$cfound = '';
 				while ($CCfirst <= $CClast){
 					while ($CRfirst <= $CRlast){
 						$cl = $this->numtochars($CCfirst).$CRfirst;
-						if ($dfsop[$cond] == 'greaterThan'){
-							if ($cell[$inv[$cl]] > $Cform1[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'greaterThanOrEqual'){
-							if ($cell[$inv[$cl]] >= $Cform1[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'lessThan'){
-							if ($cell[$inv[$cl]] < $Cform1[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'lessThanOrEqual'){
-							if ($cell[$inv[$cl]] <= $Cform1[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'between'){
-							if (($cell[$inv[$cl]] >= $Cform1[$cond]) AND ($cell[$inv[$cl]] <= $Cform2[$cond])){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'notBetween'){
-							if (($cell[$inv[$cl]] < $Cform1[$cond]) OR ($cell[$inv[$cl]] > $Cform2[$cond])){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'equal'){
-							if ($cell[$inv[$cl]] == $Cform1[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'notEqual'){
-							if ($cell[$inv[$cl]] <> $Cform1[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'containsText'){
-							$stext = " ".$this->shared[$cell[$inv[$cl]]]." ";
-							if (stripos($stext,$dfstext[$cond])){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'notContains'){
-							$stext = " ".$this->shared[$cell[$inv[$cl]]]." ";
-							if (!stripos($stext,$dfstext[$cond])){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'beginsWith'){
-							$temp = strlen($dfstext[$cond]);
-							if (substr($this->shared[$cell[$inv[$cl]]],0,$temp) == $dfstext[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfsop[$cond] == 'endsWith'){
-							$temp = strlen($dfstext[$cond]) * -1;
-							if (substr($this->shared[$cell[$inv[$cl]]],$temp) == $dfstext[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfstype[$cond] == 'duplicateValues' OR $dfstype[$cond] == 'uniqueValues'){
-							if ($Ddata[$cl] == ''){
-								$ctemp = $cell[$inv[$cl]];
-							} else {
-								$ctemp = $this->shared[$cell[$inv[$cl]]];
-							}
-							$q = 0;
-							$tcfound = '';
-							while ($dupl[$cond][$q]){
-								if ($dupl[$cond][$q] == $ctemp){
-									$tcfound = 'Y';
-									}
-								++$q;
-							}
-							if ($dfstype[$cond] == 'duplicateValues'){
-								if ($tcfound == 'Y'){
+						if (isset($inv[$cl])){
+							if ($dfsop[$cond] == 'greaterThan'){
+								if ($cell[$inv[$cl]] > $Cform1[$cond]){
 									$cfound = 'Y';
 								}
-							} else {
-								if ($tcfound == ''){
+							} else if ($dfsop[$cond] == 'greaterThanOrEqual'){
+								if ($cell[$inv[$cl]] >= $Cform1[$cond]){
 									$cfound = 'Y';
 								}
-							}
-						} else if ($dfstype[$cond] == 'aboveAverage'){
-							if ($dfUave[$cond] == 'B'){
-								if ($dfEave[$cond] == '1'){
-									if ($cell[$inv[$cl]] <= $Bave[$cond]){
+							} else if ($dfsop[$cond] == 'lessThan'){
+								if ($cell[$inv[$cl]] < $Cform1[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'lessThanOrEqual'){
+								if ($cell[$inv[$cl]] <= $Cform1[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'between'){
+								if (($cell[$inv[$cl]] >= $Cform1[$cond]) AND ($cell[$inv[$cl]] <= $Cform2[$cond])){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'notBetween'){
+								if (($cell[$inv[$cl]] < $Cform1[$cond]) OR ($cell[$inv[$cl]] > $Cform2[$cond])){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'equal'){
+								if ($cell[$inv[$cl]] == $Cform1[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'notEqual'){
+								if ($cell[$inv[$cl]] <> $Cform1[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'containsText'){
+								$stext = " ".$this->shared[$cell[$inv[$cl]]]." ";
+								if (stripos($stext,$dfstext[$cond])){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'notContains'){
+								$stext = " ".$this->shared[$cell[$inv[$cl]]]." ";
+								if (!stripos($stext,$dfstext[$cond])){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'beginsWith'){
+								$temp = strlen($dfstext[$cond]);
+								if (substr($this->shared[$cell[$inv[$cl]]],0,$temp) == $dfstext[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfsop[$cond] == 'endsWith'){
+								$temp = strlen($dfstext[$cond]) * -1;
+								if (substr($this->shared[$cell[$inv[$cl]]],$temp) == $dfstext[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfstype[$cond] == 'duplicateValues' OR $dfstype[$cond] == 'uniqueValues'){
+								if ($Ddata[$cl] == ''){
+									$ctemp = $cell[$inv[$cl]];
+								} else {
+									$ctemp = $this->shared[$cell[$inv[$cl]]];
+								}
+								$q = 0;
+								$tcfound = '';
+								while (isset($dupl[$cond][$q])){
+									if ($dupl[$cond][$q] == $ctemp){
+										$tcfound = 'Y';
+								}
+									++$q;
+								}
+								if ($dfstype[$cond] == 'duplicateValues'){
+									if ($tcfound == 'Y'){
 										$cfound = 'Y';
 									}
 								} else {
-									if ($cell[$inv[$cl]] < $Bave[$cond]){
+									if ($tcfound == ''){
 										$cfound = 'Y';
 									}
 								}
-							} else {
-								if ($dfEave[$cond] == '1'){
-									if ($cell[$inv[$cl]] >= $Aave[$cond]){
-										$cfound = 'Y';
+							} else if ($dfstype[$cond] == 'aboveAverage'){
+								if ($dfUave[$cond] == 'B'){
+									if ($dfEave[$cond] == '1'){
+										if ($cell[$inv[$cl]] <= $Bave[$cond]){
+											$cfound = 'Y';
+										}
+									} else {
+										if ($cell[$inv[$cl]] < $Bave[$cond]){
+											$cfound = 'Y';
+										}
 									}
 								} else {
-									if ($cell[$inv[$cl]] > $Aave[$cond]){
-										$cfound = 'Y';
+									if ($dfEave[$cond] == '1'){
+										if ($cell[$inv[$cl]] >= $Aave[$cond]){
+											$cfound = 'Y';
+										}
+									} else {
+										if ($cell[$inv[$cl]] > $Aave[$cond]){
+											$cfound = 'Y';
+										}
 									}
 								}
-							}
-						} else if ($dfstype[$cond] == 'top10'){
-							if ($ttype[$cond] == 'B' AND  $cell[$inv[$cl]] <= $t10[$cond]){
-								$cfound = 'Y';
-							}
-							if ($ttype[$cond] == 'T' AND $cell[$inv[$cl]] >= $t10[$cond]){
-								$cfound = 'Y';
-							}
-						} else if ($dfstype[$cond] == 'colorScale'){
-							$Css[$cl]['Cfill'] = " background-color: #".$this->findcolorScale($CScolour[$cond], $CSmin1[$cond], $CSmax1[$cond], $CSave[$cond], $cell[$inv[$cl]]).";";
-						} else if ($dfstype[$cond] == 'dataBar' AND $CScolour[$cond][0] <> ''){
-							$dbt = 0;
-							while ($dbt < $dB){
-								if ($crange[$cond] ==  $dBref[$dbt]){
-									$Dfound = $dbt;
+							} else if ($dfstype[$cond] == 'top10'){
+								if ($ttype[$cond] == 'B' AND  $cell[$inv[$cl]] <= $t10[$cond]){
+									$cfound = 'Y';
 								}
-								++$dbt;
-							} 
-							if ($Rhight[$CRfirst]){
-								if ($Rhight[$CRfirst] > 20){
-									$dbheight = $Rhight[$CRfirst] - 5;
+								if ($ttype[$cond] == 'T' AND $cell[$inv[$cl]] >= $t10[$cond]){
+									$cfound = 'Y';
+								}
+							} else if ($dfstype[$cond] == 'colorScale'){
+								$Css[$cl]['Cfill'] = " background-color: #".$this->findcolorScale($CScolour[$cond], $CSmin1[$cond], $CSmax1[$cond], $CSave[$cond], $cell[$inv[$cl]]).";";
+							} else if ($dfstype[$cond] == 'dataBar' AND isset($CScolour[$cond][0])){
+								$dbt = 0;
+								while ($dbt < $dB){
+									if ($crange[$cond] ==  $dBref[$dbt]){
+										$Dfound = $dbt;
+									}
+									++$dbt;
 								} 
-							} else {
-									$dbheight = 14;
-								}
-							if ($cell[$inv[$cl]] >= 0){
-								if ($dbmin[$cond] < 0 ){
-									$dbval = ($cell[$inv[$cl]] / $dbmax[$cond]) * $dbposR[$cond];
-									
+								if (isset($Rhight[$CRfirst])){
+									if ($Rhight[$CRfirst] > 20){
+										$dbheight = $Rhight[$CRfirst] - 5;
+									} 
 								} else {
-									$dbval = (($cell[$inv[$cl]] - $dbmin[$cond]) / ($dbmax[$cond] - $dbmin[$cond])) * $dbposR[$cond];
+										$dbheight = 14;
+									}
+								if ($cell[$inv[$cl]] >= 0){
+									if ($dbmin[$cond] < 0 ){
+										$dbval = ($cell[$inv[$cl]] / $dbmax[$cond]) * $dbposR[$cond];
+										
+									} else {
+										$dbval = (($cell[$inv[$cl]] - $dbmin[$cond]) / ($dbmax[$cond] - $dbmin[$cond])) * $dbposR[$cond];
+									}
+									if ($dbval > $dbposR[$cond]){
+										$dbval = $dbposR[$cond];
+									}
+									if ($dbval < 0){
+										$dbval = 0;
+									}
+									$Css[$cl]['dBfill'] = "<div style = 'width: ".$dbval."%; margin-top: 1px; height: ".$dbheight."px;";
+									if ($dBGrad[$Dfound] == 1){
+										$Css[$cl]['dBfill'] .= " background: linear-gradient(to right, #".$CScolour[$cond][0]." 0%, #FFFFFF 100%);";
+									} else {
+										$Css[$cl]['dBfill'] .= " background: #".$CScolour[$cond][0].";";
+									}
+									if ($dBBord[$Dfound] == 1 AND $dbval <> 0){
+										$Css[$cl]['dBfill'] .= " border: 1px solid #".$dBBcol[$Dfound].";";
+									} else {
+										$Css[$cl]['dBfill'] .= " border-top: 1px solid #".$CScolour[$cond][0].";";
+										$Css[$cl]['dBfill'] .= " border-bottom: 1px solid #".$CScolour[$cond][0].";";
+									}
+									if ($dbnegR[$cond] <> 0){
+										$Css[$cl]['dBfill'] .= " margin-left: ".$dbnegR[$cond]."%; border-left: 1px dashed #".$dBAcol[$Dfound].";";
+									}
+									$Css[$cl]['dBfill'] .= " '></div>";
 								}
-								if ($dbval > $dbposR[$cond]){
-									$dbval = $dbposR[$cond];
-								}
-								if ($dbval < 0){
-									$dbval = 0;
-								}
-								$Css[$cl]['dBfill'] = "<div style = 'width: ".$dbval."%; margin-top: 1px; height: ".$dbheight."px;";
+								if ($cell[$inv[$cl]] < 0){
+									if ($dbmax[$cond] < 0 ){
+										$dbval2 = ($cell[$inv[$cl]] / $dbmin[$cond]) * $dbnegR[$cond];
+									} else {
+										$dbval2 = (($cell[$inv[$cl]] - $dbmin[$cond]) / (0 - $dbmin[$cond])) * $dbnegR[$cond];
+									}
+									if ($dbval2 > 100){
+										$dbval2 = 100;
+									}
+									if ($dbval2 < 0){
+										$dbval2 = 0;
+									}
+									$dbval = $dbnegR[$cond] - $dbval2;
+									$Css[$cl]['dBfill'] = "<div style = 'width: ".$dbval."%; margin-top: 1px; height: ".$dbheight."px;";
 								if ($dBGrad[$Dfound] == 1){
-									$Css[$cl]['dBfill'] .= " background: linear-gradient(to right, #".$CScolour[$cond][0]." 0%, #FFFFFF 100%);";
-								} else {
-									$Css[$cl]['dBfill'] .= " background: #".$CScolour[$cond][0].";";
+										$Css[$cl]['dBfill'] .= " background: linear-gradient(to right, #FFFFFF 0%, #".$dBNFcol[$Dfound]." 100%);";
+									} else {
+										$Css[$cl]['dBfill'] .= " background: #".$dBNFcol[$Dfound].";";
+									}
+									if ($dBBord[$Dfound] == 1 AND $dbval <> 0){
+										$Css[$cl]['dBfill'] .= " border: 1px solid #".$dBNBcol[$Dfound].";";
+									} else {
+										$Css[$cl]['dBfill'] .= " border-top: 1px solid #".$dBNFcol[$Dfound].";";
+										$Css[$cl]['dBfill'] .= " border-bottom: 1px solid #".$dBNFcol[$Dfound].";";
+									}
+									if ($dbval <> 0){
+										$Css[$cl]['dBfill'] .= " margin-left: ".$dbval2."%;";
+									}
+									if ($dbmax[$cond] > 0){
+										$Css[$cl]['dBfill'] .= "  border-right: 1px dashed #".$dBAcol[$Dfound].";";
+									}
+									$Css[$cl]['dBfill'] .= " '></div>";
 								}
-								if ($dBBord[$Dfound] == 1 AND $dbval <> 0){
-									$Css[$cl]['dBfill'] .= " border: 1px solid #".$dBBcol[$Dfound].";";
-								} else {
-									$Css[$cl]['dBfill'] .= " border-top: 1px solid #".$CScolour[$cond][0].";";
-									$Css[$cl]['dBfill'] .= " border-bottom: 1px solid #".$CScolour[$cond][0].";";
+								
+							}
+							if ($cfound == 'Y'){
+								if ($Cellstyle[$dfsref[$cond]]['Cfill']){
+									$Css[$cl]['Cfill'] = $Cellstyle[$dfsref[$cond]]['Cfill'];
 								}
-								if ($dbnegR[$cond] <> 0){
-									$Css[$cl]['dBfill'] .= " margin-left: ".$dbnegR[$cond]."%; border-left: 1px dashed #".$dBAcol[$Dfound].";";
+								if($Cellstyle[$dfsref[$cond]]['Cbleft']){
+									$Css[$cl]['Cbleft'] = $Cellstyle[$dfsref[$cond]]['Cbleft'];
 								}
-								$Css[$cl]['dBfill'] .= " '></div>";
-							}
-							if ($cell[$inv[$cl]] < 0){
-								if ($dbmax[$cond] < 0 ){
-									$dbval2 = ($cell[$inv[$cl]] / $dbmin[$cond]) * $dbnegR[$cond];
-								} else {
-									$dbval2 = (($cell[$inv[$cl]] - $dbmin[$cond]) / (0 - $dbmin[$cond])) * $dbnegR[$cond];
+								if ($Cellstyle[$dfsref[$cond]]['Cbtop']){
+									$Css[$cl]['Cbtop'] = $Cellstyle[$dfsref[$cond]]['Cbtop'];
 								}
-								if ($dbval2 > 100){
-									$dbval2 = 100;
+								if ($Cellstyle[$dfsref[$cond]]['Cbtop']){
+									$Css[$cl]['Cbright'] = $Cellstyle[$dfsref[$cond]]['Cbright'];
 								}
-								if ($dbval2 < 0){
-									$dbval2 = 0;
+								if ($Cellstyle[$dfsref[$cond]]['Cbbott']){
+									$Css[$cl]['Cbbott'] = $Cellstyle[$dfsref[$cond]]['Cbbott'];
 								}
-								$dbval = $dbnegR[$cond] - $dbval2;
-								$Css[$cl]['dBfill'] = "<div style = 'width: ".$dbval."%; margin-top: 1px; height: ".$dbheight."px;";
-							if ($dBGrad[$Dfound] == 1){
-									$Css[$cl]['dBfill'] .= " background: linear-gradient(to right, #FFFFFF 0%, #".$dBNFcol[$Dfound]." 100%);";
-								} else {
-									$Css[$cl]['dBfill'] .= " background: #".$dBNFcol[$Dfound].";";
+								if ($Cellstyle[$dfsref[$cond]]['Cfname']){
+									$Css[$cl]['Cfname'] = $Cellstyle[$dfsref[$cond]]['Cfname'];
 								}
-								if ($dBBord[$Dfound] == 1 AND $dbval <> 0){
-									$Css[$cl]['dBfill'] .= " border: 1px solid #".$dBNBcol[$Dfound].";";
-								} else {
-									$Css[$cl]['dBfill'] .= " border-top: 1px solid #".$dBNFcol[$Dfound].";";
-									$Css[$cl]['dBfill'] .= " border-bottom: 1px solid #".$dBNFcol[$Dfound].";";
+								if ($Cellstyle[$dfsref[$cond]]['Cfsize']){
+									$Css[$cl]['Cfsize'] = $Cellstyle[$dfsref[$cond]]['Cfsize'];
 								}
-								if ($dbval <> 0){
-									$Css[$cl]['dBfill'] .= " margin-left: ".$dbval2."%;";
+								if ($Cellstyle[$dfsref[$cond]]['Cfcol']){
+									$Css[$cl]['Cfcol'] = $Cellstyle[$dfsref[$cond]]['Cfcol'];
 								}
-								if ($dbmax[$cond] > 0){
-									$Css[$cl]['dBfill'] .= "  border-right: 1px dashed #".$dBAcol[$Dfound].";";
+								if ($Cellstyle[$dfsref[$cond]]['Cfbold']){
+									$Css[$cl]['Cfbold'] = $Cellstyle[$dfsref[$cond]]['Cfbold'];
 								}
-								$Css[$cl]['dBfill'] .= " '></div>";
+								if ($Cellstyle[$dfsref[$cond]]['Cfund']){
+									$Css[$cl]['Cfund'] = $Cellstyle[$dfsref[$cond]]['Cfund'];
+								}
+								if ($Cellstyle[$dfsref[$cond]]['Cfital']){
+									$Css[$cl]['Cfital'] = $Cellstyle[$dfsref[$cond]]['Cfital'];
+								}
+								if ($Cellstyle[$dfsref[$cond]]['Cfscript']){
+									$Css[$cl]['Cfscript'] = $Cellstyle[$dfsref[$cond]]['Cfscript'];
+								}
+								if ($Cellstyle[$dfsref[$cond]]['Cfstrike']){
+									$Css[$cl]['Cfstrike'] = $Cellstyle[$dfsref[$cond]]['Cfstrike'];
+								}
+								$cfound = '';
 							}
-							
-						}
-						if ($cfound == 'Y'){
-							if ($Cellstyle[$dfsref[$cond]]['Cfill']){
-								$Css[$cl]['Cfill'] = $Cellstyle[$dfsref[$cond]]['Cfill'];
-							}
-							if($Cellstyle[$dfsref[$cond]]['Cbleft']){
-								$Css[$cl]['Cbleft'] = $Cellstyle[$dfsref[$cond]]['Cbleft'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cbtop']){
-								$Css[$cl]['Cbtop'] = $Cellstyle[$dfsref[$cond]]['Cbtop'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cbtop']){
-								$Css[$cl]['Cbright'] = $Cellstyle[$dfsref[$cond]]['Cbright'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cbbott']){
-								$Css[$cl]['Cbbott'] = $Cellstyle[$dfsref[$cond]]['Cbbott'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfname']){
-								$Css[$cl]['Cfname'] = $Cellstyle[$dfsref[$cond]]['Cfname'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfsize']){
-								$Css[$cl]['Cfsize'] = $Cellstyle[$dfsref[$cond]]['Cfsize'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfcol']){
-								$Css[$cl]['Cfcol'] = $Cellstyle[$dfsref[$cond]]['Cfcol'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfbold']){
-								$Css[$cl]['Cfbold'] = $Cellstyle[$dfsref[$cond]]['Cfbold'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfund']){
-								$Css[$cl]['Cfund'] = $Cellstyle[$dfsref[$cond]]['Cfund'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfital']){
-								$Css[$cl]['Cfital'] = $Cellstyle[$dfsref[$cond]]['Cfital'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfscript']){
-								$Css[$cl]['Cfscript'] = $Cellstyle[$dfsref[$cond]]['Cfscript'];
-							}
-							if ($Cellstyle[$dfsref[$cond]]['Cfstrike']){
-								$Css[$cl]['Cfstrike'] = $Cellstyle[$dfsref[$cond]]['Cfstrike'];
-							}
-							$cfound = '';
 						}
 						++$CRfirst;
 					}
@@ -2612,12 +2856,11 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 				++$cond;
 			}
-
 			//Start of processing data for each cell entry in the sheet
 			$cc = 0;
 			while ($cc <= $tst){ 
 				//Start of processing number formatting
-				if (($cell[$cc] >= 0 OR $cell[$cc] < 0) AND $cell[$cc] <> '' AND $Ddata[$cellno[$cc]] == ''){ 
+				if (isset($cell[$cc]) AND $Ddata[$cellno[$cc]] == ''){ 
 					$temp = $temp2 = '';
 					$Ncode = " ".$Cellstyle[$Sdata[$cellno[$cc]]]['nform'];
 					if ($Cellstyle[$Sdata[$cellno[$cc]]]['nform'] == 'ZZZ'){
@@ -2850,10 +3093,12 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 								} else {
 									if ($account == 'Y'){ //For Accounting alignment
 										$clead = $ctrail = '';
-										if ($curr['pos'] == 'T'){
-											$ctrail = $curr['unit'];
-										} else {
-											$clead = $curr['unit'];
+										if (isset($curr['pos'])){
+											if ($curr['pos'] == 'T'){
+												$ctrail = $curr['unit'];
+											} else {
+												$clead = $curr['unit'];
+											}
 										}
 										if ($cell[$cc] === '0'){
 											$cell[$cc] = "<div style='float:left;'>&nbsp;".$min.$minus.$clead."</div><div style='float:right;'>-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;".$ctrail."&nbsp;</div>"; // In accounting format '0' is replaced by a '-'
@@ -2904,48 +3149,58 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				}
 				// End of Number Format processing
 				
-				if ($Cellstyle[$Sdata[$cellno[$cc]]]['hyper'] == 'Hyperlink'){
-					$test[$cc] = "<a href='".$this->shared[$cell[$cc]]."'>".$this->shared[$cell[$cc]]."</a>";
-					$this->shared[$cell[$cc]] = $test[$cc]; //Adds in the hyperlink code for a hyperlink
+				$hc = 0;
+				while ($hc < $hyperno){
+					if ($Chyper[$hc] == $cellno[$cc]){
+						if (!strpos($this->shared[$cell[$cc]],'href')){ //checks to see if this shared string has already been processed
+							if (strpos($this->shared[$cell[$cc]],'@')){
+								$test[$cc] = "<a href='mailto:".$this->shared[$cell[$cc]]."'>".$this->shared[$cell[$cc]]."</a>";
+							} else {
+								$test[$cc] = "<a href='".$this->shared[$cell[$cc]]."'>".$this->shared[$cell[$cc]]."</a>";
+							}
+							$this->shared[$cell[$cc]] = $test[$cc]; //Adds in the hyperlink code for a hyperlink
+						}
+					}
+					++$hc;
 				}
 				
 				// get text/number formatting
-				if ($Css[$cellno[$cc]]['Cfname']){
+				if (isset($Css[$cellno[$cc]]['Cfname'])){
 					$Tfname = $Css[$cellno[$cc]]['Cfname'];
 				} else {
 					$Tfname = $Cellstyle[$Sdata[$cellno[$cc]]]['fname'];
 				}
-				if ($Css[$cellno[$cc]]['Cfsize']){
+				if (isset($Css[$cellno[$cc]]['Cfsize'])){
 					$Tfsize = $Css[$cellno[$cc]]['Cfsize'];
 				} else {
 					$Tfsize = $Cellstyle[$Sdata[$cellno[$cc]]]['fsize'];
 				}
-				if ($Css[$cellno[$cc]]['Cfcol']){
+				if (isset($Css[$cellno[$cc]]['Cfcol'])){
 					$Tfcol = $Css[$cellno[$cc]]['Cfcol'];
 				} else {
 					$Tfcol = $Cellstyle[$Sdata[$cellno[$cc]]]['fcol'];
 				}
-				if ($Css[$cellno[$cc]]['Cfbold']){
+				if (isset($Css[$cellno[$cc]]['Cfbold'])){
 					$Tfbold = $Css[$cellno[$cc]]['Cfbold'];
 				} else {
 					$Tfbold = $Cellstyle[$Sdata[$cellno[$cc]]]['fbold'];
 				}
-				if ($Css[$cellno[$cc]]['Cfund']){
+				if (isset($Css[$cellno[$cc]]['Cfund'])){
 					$Tfund = $Css[$cellno[$cc]]['Cfund'];
 				} else {
 					$Tfund = $Cellstyle[$Sdata[$cellno[$cc]]]['fund'];
 				}
-				if ($Css[$cellno[$cc]]['Cfital']){
+				if (isset($Css[$cellno[$cc]]['Cfital'])){
 					$Tfital = $Css[$cellno[$cc]]['Cfital'];
 				} else {
 					$Tfital = $Cellstyle[$Sdata[$cellno[$cc]]]['fital'];
 				}
-				if ($Css[$cellno[$cc]]['Cfscript']){
+				if (isset($Css[$cellno[$cc]]['Cfscript'])){
 					$Tfscript = $Css[$cellno[$cc]]['Cfscript'];
 				} else {
 					$Tfscript = $Cellstyle[$Sdata[$cellno[$cc]]]['fscript'];
 				}
-				if ($Css[$cellno[$cc]]['Cfstrike']){
+				if (isset($Css[$cellno[$cc]]['Cfstrike'])){
 					$Tfstrike = $Css[$cellno[$cc]]['Cfstrike'];
 				} else {
 					$Tfstrike = $Cellstyle[$Sdata[$cellno[$cc]]]['fstrike'];
@@ -2953,43 +3208,60 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 				$fortext = $Tfname.$Tfsize.$Tfcol.$Tfbold.$Tfund.$Tfital.$Tfscript.$Tfstrike;
 				
 				// get cell formatting
-				if ($Css[$cellno[$cc]]['Cfill']){
+				if (isset($Css[$cellno[$cc]]['Cfill'])){
 					$Tfill = $Css[$cellno[$cc]]['Cfill'];
 				} else {
 					$Tfill = $Cellstyle[$Sdata[$cellno[$cc]]]['fill'];
 				}
-				if ($Css[$cellno[$cc]]['Cbleft']){
+				if (isset($Css[$cellno[$cc]]['Cbleft'])){
 					$Tbleft = $Css[$cellno[$cc]]['Cbleft'];
 				} else {
 					$Tbleft = $Cellstyle[$Sdata[$cellno[$cc]]]['bleft'];
 				}
-				if ($Css[$cellno[$cc]]['Cbtop']){
+				if (isset($Css[$cellno[$cc]]['Cbtop'])){
 					$Tbtop = $Css[$cellno[$cc]]['Cbtop'];
 				} else {
 					$Tbtop = $Cellstyle[$Sdata[$cellno[$cc]]]['btop'];
 				}
-				if ($Css[$cellno[$cc]]['Cbright']){
+				$Tbbott = $Tbright = '';
+				if (isset($Css[$cellno[$cc]]['Cbright'])){
 					$Tbright = $Css[$cellno[$cc]]['Cbright'];
 				} else {
-					$Tbright = $Cellstyle[$Sdata[$cellno[$cc]]]['bright'];
+					if (isset($Cellstyle[$Sdata[$cellno[$cc]]]['bright'])){
+						$Tbright = $Cellstyle[$Sdata[$cellno[$cc]]]['bright'];
+					} else {
+						$Tbright = $defbright;
+					}
 				}
-				if ($Css[$cellno[$cc]]['Cbbott']){
+				if (isset($Css[$cellno[$cc]]['Cbbott'])){
 					$Tbbott = $Css[$cellno[$cc]]['Cbbott'];
 				} else {
-					$Tbbott = $Cellstyle[$Sdata[$cellno[$cc]]]['bbott'];
+					if (isset($Cellstyle[$Sdata[$cellno[$cc]]]['bbott'])){
+						$Tbbott = $Cellstyle[$Sdata[$cellno[$cc]]]['bbott'];
+					}
+					else {
+						$Tbbott = $defbbott;
+					}
 				}
+				
 				$forcell = $Tbleft.$Tbright.$Tbtop.$Tbbott.$Tfill.$Cellstyle[$Sdata[$cellno[$cc]]]['avert'].$Cellstyle[$Sdata[$cellno[$cc]]]['bdiag']; // get common formatting
 				$forcellN[$cellno[$cc]] = $forcell.$Cellstyle[$Sdata[$cellno[$cc]]]['anhor']; //cell formatting for numbers
 				$forcellT[$cellno[$cc]] = $forcell.$Cellstyle[$Sdata[$cellno[$cc]]]['athor']; //cell formatting for text
 				
-				if ($Ddata[$cellno[$cc]] == ''){
-					if ($Css[$cellno[$cc]]['dBfill'] == ''){
+				if ($Ddata[$cellno[$cc]] == '' AND isset($cell[$cc])){
+					if (!isset($Css[$cellno[$cc]]['dBfill'])){
 						$Wdata[$cellno[$cc]] = " style='".$forcellN[$cellno[$cc]]."'><span style='".$fortext."'>".$cell[$cc]."</span></td>"; //get text and formatting for numbers
 					} else {
 						$Wdata[$cellno[$cc]] = " style='".$forcellN[$cellno[$cc]]."'><span style='".$fortext."'>".$Css[$cellno[$cc]]['dBfill']."<div style='position: relative; bottom: 15px; margin-bottom: -15px;'>".$cell[$cc]."</div></span></td>"; //get text and formatting for numbers						
 					}
+				} else if (!isset($cell[$cc])){
+					$Wdata[$cellno[$cc]] = " style='".$forcellN[$cellno[$cc]]."'>&nbsp;</td>"; // for blank cells with formatting
 				} else {
-					$Wdata[$cellno[$cc]] = " style='".$forcellT[$cellno[$cc]]."'><span style='".$fortext."'>".$this->shared[$cell[$cc]]."</span></td>"; //get text and formatting for strings (come from 'Shared Strings')
+					if (isset($this->shared[$cell[$cc]])){
+						$Wdata[$cellno[$cc]] = " style='".$forcellT[$cellno[$cc]]."'><span style='".$fortext."'>".$this->shared[$cell[$cc]]."</span></td>"; //get text and formatting for strings (come from 'Shared Strings')
+					} else {
+						$Wdata[$cellno[$cc]] = " style='".$forcellT[$cellno[$cc]]."'>&nbsp;</span></td>"; 
+					}
 				}
 				++$cc;
 			}
@@ -3021,7 +3293,26 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 			}
 			// End of finding size of merged cells.
 			
-			$defstyle = " border-right:1px solid LightGray; border-bottom:1px solid LightGray;";
+			if ($this->PR == 'P'){
+				$panum = sizeof($this->PAtext);
+				$pp = 0;
+				while ($pp < $panum){
+					if (strpos($this->PAtext[$pp],$this->Sheetname[$Nsheet-1])){
+						$PAtemp = str_replace('$','', $this->PAtext[$pp]);
+						$PAinfo = explode('!',$PAtemp);
+						$PAdet = explode(':',$PAinfo[1]);
+						$pa1 = $this->charstonum($PAdet[0]);
+						$Cfirst = $pa1['char'];
+						$Rfirst = $pa1['num'];
+						$pa2 = $this->charstonum($PAdet[1]);
+						$Clast = $pa2['char'];
+						$Rlast = $pa2['num'];
+					}
+					++$pp;
+				}
+			}
+			
+			$defstyle = $defbright.$defbbott;
 			$CRcom = $Cellstyle[$Sdata[$cellno[0]]]['fname'].$Cellstyle[0]['fsize']." background-color: LightGray; text-align:center;"; // Common formatting for all row and column references
 			$TLcell = $CRcom."border:1px solid Gray; min-width:20px;"; //cell stying for top left corner
 			$TRcell = $CRcom."border-top:1px solid Gray; border-right:1px solid Gray; border-bottom:1px solid Gray;"; //cell stying for column letters above top row
@@ -3038,7 +3329,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 					}
 				} else {
 					if ($this->PR == 'P'){
-						$text .= "<td style='border-right: 1px solid LightGray'></td>";				
+						$text .= "<td style='".$defbright."'></td>";				
 					} else {
 						if ($this->SW == 'O' AND isset($Rhight[$rowcount])){
 							$text .= "<tr><td style='".$LCcell." height:".$Rhight[$rowcount]."px;'>".$rowcount."</td>"; //row numbers with defined height row
@@ -3047,6 +3338,7 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 						}
 					}
 				}
+				$PP = -1;
 				while ($colcount <= $Clast){
 					$Acolcount = $this->numtochars($colcount);
 					$a = 0;
@@ -3080,33 +3372,33 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 						}
 						if ($rowcount < $Rfirst){
 							if ($this->SW == 'O'){
-								if (!$Cwidth[$colcount]){
+								if (!isset($Cwidth[$colcount])){
 									$Cwidth[$colcount] = $this->Defwidth;
 								}
 								if ($this->PR == 'P'){
-									$text .= "<td style='min-width:".$Cwidth[$colcount]."px; max-width:".$Cwidth[$colcount]."px; border-bottom: 1px solid LightGray'>&nbsp;</td>";
+									$text .= "<td style='min-width:".$Cwidth[$colcount]."px; max-width:".$Cwidth[$colcount]."px;".$defbbott."'>&nbsp;</td>";
 								} else {
 									$text .= "<td style='".$TRcell." min-width:".$Cwidth[$colcount]."px; max-width:".$Cwidth[$colcount]."px;'>".$Acolcount."</td>"; // column references when column width is defined
 								}
 							} else {
 								if ($this->PR == 'P'){
-									$text .= "<td style='border-bottom: 1px solid LightGray'>&nbsp;</td>";
+									$text .= "<td style='".$defbbott."'>&nbsp;</td>";
 								} else {
 									$text .= "<td style='".$TRcell."'>&nbsp;".$Acolcount."&nbsp;</td>"; // column references when column width is not defined
 								}
 							}
-						} else if ($PP <> ''){
-							if (!$Sdata[$tcell]){
+						} else if ($PP > -1){
+							if (!isset($Sdata[$tcell])){
 								$text .= "<td".$mtext." style='".$defstyle."'><image src='".$Iname[$PP]."'  style='width:".$Imxs[$PP]."px; height:".$Imys[$PP]."px; padding:5px 5px 5px 5px;' />"; //for images when the cell(s) have no defined border
 							} else {
 								$tform = $Cellstyle[$Sdata[$tcell]]['bleft'].$Cellstyle[$Sdata[$tcell]]['bright'].$Cellstyle[$Sdata[$tcell]]['btop'].$Cellstyle[$Sdata[$tcell]]['bbott'];
-								$text .= "<td".$mtext." style='".$$tform."'><image src='".$Iname[$PP]."'  style='width:".$Imxs[$PP]."px; height:".$Imys[$PP]."px; padding:5px 5px 5px 5px;' />"; //for images when cells have a defined border
+								$text .= "<td".$mtext." style='".$tform."'><image src='".$Iname[$PP]."'  style='width:".$Imxs[$PP]."px; height:".$Imys[$PP]."px; padding:5px 5px 5px 5px;' />"; //for images when cells have a defined border
 								$tform = '';
 							}
-							$PP = '';
+							$PP = -1;
 						//checks whether in the cell is blank or not
 						} else if (!isset($Wdata[$tcell])){ 
-							if (!$Sdata[$tcell]){
+							if (!isset($Sdata[$tcell])){
 								$text .= "<td".$mtext." style='".$defstyle."'>&nbsp;</td>"; //blank cells with no formatting
 							} else {
 								$text .= "<td".$mtext." style='".$forcellT[$Sdata[$tcell]]."'>&nbsp;</td>"; //for blank cells with formatting
@@ -3167,7 +3459,11 @@ class ExcelPHP // Version V1.0.0  - Timothy Edwards - 14 Dec 2024
 		} else {
 			$this->PR = 'P';
 		}
-	
+		if ($Optlen > 3){
+			$this->GR = substr($options,3,1);// if the fourth option is left blank or is a 'G' then grid lines are shown. An 'N' will remove all grid lines. Only border formatting will be shown
+		} else {
+			$this->GR = 'G';
+		}
 	
 		$this->readZipPart(); // Makes the document and relationships file available throughout the class
 		$this->stylecount = 0;
